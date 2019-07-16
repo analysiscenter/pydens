@@ -1,0 +1,26 @@
+[MASTER]
+ignore=examples
+extension-pkg-whitelist=numpy
+
+[DESIGN]
+max-line-length=120
+max-attributes=20
+max-locals=20
+max-args=20
+max-module-lines=1500
+max-statements=200
+max-nested-blocks=10
+docstring-min-length=3
+
+[TYPECHECK]
+ignored-modules=numpy,cv2
+
+[MESSAGE CONTROL]
+disable=no-member, no-value-for-parameter, no-self-use, too-many-locals, too-few-public-methods, too-many-public-methods, too-many-branches, unsubscriptable-object, redefined-variable-type, too-many-star-expressions, duplicate-code, not-context-manager, too-many-lines, global-statement, locally-disabled, wrong-import-position, invalid-sequence-index, redundant-keyword-arg, bad-super-call, no-self-argument, redefined-builtin, arguments-differ, len-as-condition, keyword-arg-before-vararg,assignment-from-none,useless-return,useless-import-alias, unnecessary-pass, cyclic-import, assignment-from-no-return, comparison-with-callable
+
+[BASIC]
+class-rgx=[A-Z_][a-zA-Z0-9_]+$
+good-names=a,b,c,d,f,g,i,j,k,l,m,n,o,p,q,r,s,t,v,w,x,y,z,e,ex,_,ix,fn,op,B,C,V,D,F,L,R,W,P,logger,bar,lr
+
+[MISCELLANEOUS]
+notes=

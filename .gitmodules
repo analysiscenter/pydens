@@ -1,0 +1,3 @@
+[submodule "deepde/batchflow"]
+	path = deepde/batchflow
+	url = https://github.com/analysiscenter/batchflow.git
