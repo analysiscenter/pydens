@@ -126,13 +126,13 @@ def make_token(module='tf', name=None, namespaces=None):
     # parse namespaces-arg
     if module in ['tensorflow', 'tf']:
         namespaces = namespaces or [tf.math, tf, tf.nn]
-        module_ = TFLetters
+        module_ = TFLetters()
     elif module in ['numpy', 'np']:
         namespaces = namespaces or [np, np.math]
-        module_ = NPLetters
+        module_ = NPLetters()
     elif module == 'torch':
         namespaces = namespaces or [torch, torch.nn]
-        module_ = TorchLetters
+        module_ = TorchLetters()
 
     # None of the passed modules are supported
     if namespaces is None:

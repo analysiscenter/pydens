@@ -143,7 +143,7 @@ class NPLetters(Letters):
     #pylint: disable=abstract-method
     try:
         _ = grad, autonp
-    finally:
+    except NameError:
         _ = np
 
     @staticmethod
