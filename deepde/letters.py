@@ -14,6 +14,7 @@ except ImportError:
 
 #pylint: disable=no-name-in-module, import-error
 from .batchflow.models.tf.layers import conv_block
+from .batchflow.models.torch.layers import ConvBlock
 
 
 
@@ -23,21 +24,17 @@ class Letters(ABC):
     def D(self, *args, **kwargs):
         """ `D` letter: taking gradient of the first argument with respect to the second. """
 
-
     @abstractmethod
     def P(self, *args, **kwargs):
         """ `P` letter: controllable from the outside perturbation. """
-
 
     @abstractmethod
     def R(self, *args, **kwargs):
         """ `R` letter: dynamically generated random noise. """
 
-
     @abstractmethod
     def V(self, *args, **kwargs):
         """ `V` letter: adjustable variation of the coefficient. """
-
 
     @abstractmethod
     def C(self, *args, **kwargs):
@@ -64,12 +61,14 @@ class TFLetters(Letters):
     @staticmethod
     def R(*args, **kwargs):
         if len(args) > 2:
-            raise ValueError('`R`')
+            raise ValueError('`R` works with 2 arguments at most. ')
         if len(args) == 2:
             inputs, scale = args
             shape = tf.shape(inputs)
         else:
             scale = args[0] if len(args) == 1 else 1
+            # If model graph is already build, we can infer batch size from shape of one of the tensors
+            # Otherwise, we use placeholder
             try:
                 points = TFLetters.tf_check_tensor('inputs', 'concat', ':0')
                 shape = (tf.shape(points)[0], 1)
@@ -131,7 +130,7 @@ class TFLetters(Letters):
 
     @staticmethod
     def tf_check_tensor(prefix=None, name=None, postfix='/_output:0'):
-        """ Simple wrapper around `get_tensor_by_name`. """
+        """ Convenient wrapper around `get_tensor_by_name`. """
         tensor_name = tf.get_variable_scope().name + '/' + prefix + '/' + name + postfix
         graph = tf.get_default_graph()
         tensor = graph.get_tensor_by_name(tensor_name)
@@ -141,7 +140,7 @@ class TFLetters(Letters):
 
 class NPLetters(Letters):
     """ NumPy implementations of custom letters. """
-    _ = np, grad, autonp
+    _ = np
 
 
 
@@ -150,4 +149,9 @@ class TorchLetters(Letters):
             # if name == 'D':
             # namespaces = namespaces or [autonp, autonp.math]
             # d_func = lambda f, x: grad(f)(x)
-    _ = torch
+    _ = torch, ConvBlock
+
+    @staticmethod
+    def D(*args, **kwargs):
+        _ = kwargs
+        return torch.autograd.grad(args[0], args[1])[0]
