@@ -1,12 +1,10 @@
-""""""
+""" Custom mathematical tokens for `deepde` syntax. """
 
-import inspect
 from abc import ABC, abstractmethod
 
 import numpy as np
 import tensorflow as tf
-
-from .batchflow.models.tf.layers import conv_block
+import torch
 
 try:
     from autograd import grad
@@ -14,42 +12,36 @@ try:
 except ImportError:
     pass
 
-try:
-    import networkx as nx
-except ImportError:
-    pass
+#pylint: disable=no-name-in-module, import-error
+from .batchflow.models.tf.layers import conv_block
 
 
 
 class Letters(ABC):
+    """ Abstract class for custom letters. Defines which letters should be implemented. """
     @abstractmethod
     def D(self, *args, **kwargs):
         """ `D` letter: taking gradient of the first argument with respect to the second. """
-        pass
 
 
     @abstractmethod
     def P(self, *args, **kwargs):
         """ `P` letter: controllable from the outside perturbation. """
-        pass
 
 
     @abstractmethod
     def R(self, *args, **kwargs):
         """ `R` letter: dynamically generated random noise. """
-        pass
 
 
     @abstractmethod
     def V(self, *args, **kwargs):
         """ `V` letter: adjustable variation of the coefficient. """
-        pass
 
 
     @abstractmethod
     def C(self, *args, **kwargs):
         """ `C` letter: small neural network inside equation. """
-        pass
 
 
 
@@ -147,18 +139,15 @@ class TFLetters(Letters):
 
 
 
-def NPLetters(Letters):
+class NPLetters(Letters):
     """ NumPy implementations of custom letters. """
-    pass
+    _ = np, grad, autonp
 
 
 
-
-
-
-
-
-
-
-
-
+class TorchLetters(Letters):
+    """ PyTorch implementations of custom letters. """
+            # if name == 'D':
+            # namespaces = namespaces or [autonp, autonp.math]
+            # d_func = lambda f, x: grad(f)(x)
+    _ = torch

@@ -1,23 +1,16 @@
-""""""
-
+""" Functions for making mathematical tokens and adding them to desired namespace. """
 import inspect
 
 import numpy as np
 import tensorflow as tf
-
-from .letters import *
-from .batchflow.models.tf.layers import conv_block
-
-try:
-    from autograd import grad
-    import autograd.numpy as autonp
-except ImportError:
-    pass
+import torch
 
 try:
     import networkx as nx
 except ImportError:
     pass
+
+from .letters import TFLetters, NPLetters, TorchLetters
 
 
 
@@ -136,11 +129,10 @@ def make_token(module='tf', name=None, namespaces=None):
         module_ = TFLetters
     elif module in ['numpy', 'np']:
         namespaces = namespaces or [np, np.math]
-        if name == 'D':
-            namespaces = namespaces or [autonp, autonp.math]
-            d_func = lambda f, x: grad(f)(x)
+        module_ = NPLetters
     elif module == 'torch':
-        raise NotImplementedError('Torch is not implemented yet.')
+        namespaces = namespaces or [torch, torch.nn]
+        module_ = TorchLetters
 
     # None of the passed modules are supported
     if namespaces is None:

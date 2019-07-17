@@ -5,8 +5,8 @@ Sirignano J., Spiliopoulos K. "`DGM: A deep learning algorithm for solving parti
 from inspect import signature
 
 import tensorflow as tf
-from tqdm import tqdm_notebook, tqdm
 
+#pylint: disable=no-name-in-module, import-error
 from .batchflow.models.tf import TFModel
 from .batchflow.models.tf.layers import conv_block
 from .syntax import get_num_parameters

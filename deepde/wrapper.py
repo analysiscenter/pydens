@@ -3,7 +3,6 @@
 from tqdm import tqdm_notebook, tqdm
 
 from .model_tf import TFDeep
-from .model_torch import TorchDeep
 
 
 
@@ -17,7 +16,8 @@ class DeepSolver:
     config : dict
         Configuration of model. Supports all of the options from `model_class`.
     """
-    def __init__(self, config, model_class=TFDeep):
+    def __init__(self, config, model_class=None):
+        model_class = config.get('model_class') or TFDeep
         self.model = model_class(config)
 
 
