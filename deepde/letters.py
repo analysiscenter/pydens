@@ -140,15 +140,22 @@ class TFLetters(Letters):
 
 class NPLetters(Letters):
     """ NumPy implementations of custom letters. """
-    _ = np
+    #pylint: disable=abstract-method
+    try:
+        _ = grad, autonp
+    finally:
+        _ = np
+
+    @staticmethod
+    def D(*args, **kwargs):
+        _ = kwargs
+        return grad(args[0])(args[1])
 
 
 
 class TorchLetters(Letters):
     """ PyTorch implementations of custom letters. """
-            # if name == 'D':
-            # namespaces = namespaces or [autonp, autonp.math]
-            # d_func = lambda f, x: grad(f)(x)
+    #pylint: disable=abstract-method
     _ = torch, ConvBlock
 
     @staticmethod
