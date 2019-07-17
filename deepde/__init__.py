@@ -1,6 +1,7 @@
-from .deep_galerkin import DeepGalerkin, DGSolver
-# from .parser import *
+""" Init. """
 from .syntax import *
 from .letters import *
-# from .batchflow import NumpySampler, ConstantSampler, Sampler
+from .model_tf import TFDeep
+from .model_torch import TorchDeep
+from .wrapper import DeepSolver
 from .batchflow.sampler import *

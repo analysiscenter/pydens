@@ -23,80 +23,46 @@ except ImportError:
 
 class Letters(ABC):
     @abstractmethod
-    def V(self, *args, **kwargs):
-        pass
-
-
-    @abstractmethod
-    def C(self, *args, **kwargs):
+    def D(self, *args, **kwargs):
+        """ `D` letter: taking gradient of the first argument with respect to the second. """
         pass
 
 
     @abstractmethod
     def P(self, *args, **kwargs):
+        """ `P` letter: controllable from the outside perturbation. """
         pass
 
 
     @abstractmethod
     def R(self, *args, **kwargs):
+        """ `R` letter: dynamically generated random noise. """
         pass
 
 
     @abstractmethod
-    def D(self, *args, **kwargs):
+    def V(self, *args, **kwargs):
+        """ `V` letter: adjustable variation of the coefficient. """
+        pass
+
+
+    @abstractmethod
+    def C(self, *args, **kwargs):
+        """ `C` letter: small neural network inside equation. """
         pass
 
 
 
 class TFLetters(Letters):
-    """ TF implementations of custom letters. """
+    """ TensorFlow implementations of custom letters. """
     @staticmethod
-    def V(*args, prefix='addendums', **kwargs):
-        """ Tensorflow implementation of `V` letter: adjustable variation of the coefficient. """
-        # Parsing arguments
+    def D(*args, **kwargs):
         _ = kwargs
-        *args, name = args
-        if not isinstance(name, str):
-            raise ValueError('`W` last positional argument should be its name. Instead got {}'.format(name))
-        if len(args) > 1:
-            raise ValueError('`W` can work only with one initial value. ')
-        x = args[0] if len(args) == 1 else 0.0
+        return tf.gradients(args[0], args[1])[0]
 
-        # Try to get already existing variable with the given name from current graph.
-        # If it does not exist, create one
-        try:
-            var = TFLetters.tf_check_tensor(prefix, name)
-            return var
-        except KeyError:
-            var_name = prefix + '/' + name
-            var = tf.Variable(x, name=var_name, dtype=tf.float32, trainable=True)
-            var = tf.identity(var, name=var_name + '/_output')
-            return var
-
-    @staticmethod
-    def C(*args, prefix='addendums', **kwargs):
-        """ Tensorflow implementation of `C` letter: small neural network inside equation. """
-        *args, name = args
-        if not isinstance(name, str):
-            raise ValueError('`C` last positional argument should be its name. Instead got {}'.format(name))
-
-        defaults = dict(layout='faf',
-                        units=[15, 1],
-                        activation=tf.nn.tanh)
-        kwargs = {**defaults, **kwargs}
-
-        try:
-            block = TFLetters.tf_check_tensor(prefix, name)
-            return block
-        except KeyError:
-            block_name = prefix + '/' + name
-            points = tf.concat(args, axis=-1, name=block_name + '/concat')
-            block = conv_block(points, name=block_name, **kwargs)
-            return block
 
     @staticmethod
     def P(*args, **kwargs):
-        """ Tensorflow implementation of `R` letter: controllable from the outside perturbation. """
         _ = kwargs
         if len(args) != 1:
             raise ValueError('`P` is reserved to create exactly one perturbation at a time. ')
@@ -105,7 +71,6 @@ class TFLetters(Letters):
 
     @staticmethod
     def R(*args, **kwargs):
-        """ Tensorflow implementation of `E` letter: dynamically generated random noise. """
         if len(args) > 2:
             raise ValueError('`R`')
         if len(args) == 2:
@@ -127,10 +92,50 @@ class TFLetters(Letters):
             noise = tf.random.uniform(shape=shape, minval=-scale, maxval=scale)
         return noise
 
+
     @staticmethod
-    def D(*args, **kwargs):
+    def V(*args, prefix='addendums', **kwargs):
+        # Parsing arguments
         _ = kwargs
-        return tf.gradients(args[0], args[1])[0]
+        *args, name = args
+        if not isinstance(name, str):
+            raise ValueError('`W` last positional argument should be its name. Instead got {}'.format(name))
+        if len(args) > 1:
+            raise ValueError('`W` can work only with one initial value. ')
+        x = args[0] if len(args) == 1 else 0.0
+
+        # Try to get already existing variable with the given name from current graph.
+        # If it does not exist, create one
+        try:
+            var = TFLetters.tf_check_tensor(prefix, name)
+            return var
+        except KeyError:
+            var_name = prefix + '/' + name
+            var = tf.Variable(x, name=var_name, dtype=tf.float32, trainable=True)
+            var = tf.identity(var, name=var_name + '/_output')
+            return var
+
+
+    @staticmethod
+    def C(*args, prefix='addendums', **kwargs):
+        *args, name = args
+        if not isinstance(name, str):
+            raise ValueError('`C` last positional argument should be its name. Instead got {}'.format(name))
+
+        defaults = dict(layout='faf',
+                        units=[15, 1],
+                        activation=tf.nn.tanh)
+        kwargs = {**defaults, **kwargs}
+
+        try:
+            block = TFLetters.tf_check_tensor(prefix, name)
+            return block
+        except KeyError:
+            block_name = prefix + '/' + name
+            points = tf.concat(args, axis=-1, name=block_name + '/concat')
+            block = conv_block(points, name=block_name, **kwargs)
+            return block
+
 
     @staticmethod
     def tf_check_tensor(prefix=None, name=None, postfix='/_output:0'):
@@ -139,3 +144,21 @@ class TFLetters(Letters):
         graph = tf.get_default_graph()
         tensor = graph.get_tensor_by_name(tensor_name)
         return tensor
+
+
+
+def NPLetters(Letters):
+    """ NumPy implementations of custom letters. """
+    pass
+
+
+
+
+
+
+
+
+
+
+
+
