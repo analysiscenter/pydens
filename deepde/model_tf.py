@@ -213,14 +213,20 @@ class TFDeep(TFModel):
 
     def _make_inputs(self, names=None, config=None):
         """ Create necessary placeholders. """
-        n_vars = config['pde/n_vars']
+        n_dims = config['pde/n_dims']
+        n_parameters = config['pde/n_parameters']
         n_eqns = config['pde/n_eqns']
         placeholders_, tensors_ = super()._make_inputs(names, config)
 
         # split input so we can access individual variables later
-        coordinates = tf.split(tensors_['points'], n_vars, axis=1, name='coordinates')
-        tensors_['points'] = tf.concat(coordinates, axis=1)
-        self.store_to_attr('coordinates', coordinates)
+        coordinates = tf.split(tensors_['points'][:, :n_dims], n_dims, axis=1, name='coordinates')
+        if n_parameters > 0:
+            perturbations = tf.split(tensors_['points'][:, n_dims:], n_parameters, axis=1, name='perturbations')
+        else:
+            perturbations = []
+
+        tensors_['points'] = tf.concat(coordinates + perturbations, axis=1)
+        self.store_to_attr('coordinates', coordinates + perturbations)
         self.store_to_attr('inputs', tensors_)
 
         # make targets-tensor from zeros

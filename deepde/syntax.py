@@ -3,7 +3,11 @@ import inspect
 
 import numpy as np
 import tensorflow as tf
-import torch
+
+try:
+    import torch
+except:
+    pass
 
 try:
     import networkx as nx
@@ -22,7 +26,7 @@ MATH_TOKENS = ['sin', 'cos', 'tan',
                'sqrt', 'sign',
                ]
 
-CUSTOM_TOKENS = ['D', 'P', 'V', 'C', 'R']
+CUSTOM_TOKENS = ['D', 'P', 'V', 'C', 'R', 'grad', 'laplace', 'Δ']
 
 LABELS_MAPPING = {
     '__sub__': '-', '__rsub__': '-',

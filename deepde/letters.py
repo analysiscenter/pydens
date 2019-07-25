@@ -4,7 +4,11 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 import tensorflow as tf
-import torch
+
+try:
+    import torch
+except:
+    pass
 
 try:
     from autograd import grad
@@ -14,10 +18,24 @@ except ImportError:
 
 #pylint: disable=no-name-in-module, import-error
 from .batchflow.models.tf.layers import conv_block
-from .batchflow.models.torch.layers import ConvBlock
+
+try:
+    from .batchflow.models.torch.layers import ConvBlock
+except:
+    pass
 
 
+def add_aliases(**kwargs):
+    """ Add aliases to a class.
+    """
+    def _wrapper(cls):
+        for dst, src in kwargs.items():
+            setattr(cls, dst, getattr(cls, src))
+        return cls
+    return _wrapper
 
+
+@add_aliases(grad='D', d='D')
 class Letters(ABC):
     """ Abstract class for custom letters. Defines which letters should be implemented. """
     @abstractmethod
@@ -40,15 +58,36 @@ class Letters(ABC):
     def C(self, *args, **kwargs):
         """ `C` letter: small neural network inside equation. """
 
-
-
+@add_aliases(Δ='laplace')
 class TFLetters(Letters):
     """ TensorFlow implementations of custom letters. """
-    @staticmethod
-    def D(*args, **kwargs):
+    def D(self, *args, **kwargs):
         _ = kwargs
-        return tf.gradients(args[0], args[1])[0]
+        if len(args) > 1:
+            return tf.gradients(args[0], args[1])[0]
 
+        # return vector-gradient
+        coordinates = self.fetch_coordinates_from_graph()
+        return [tf.gradients(args[0], coordinate) for coordinate in coordinates]
+
+    def div(self, *args, **kwargs):
+        """ Divergenve of a vector field.
+        """
+        _ = kwargs
+
+        # fetch coordinates
+        coordinates = self.fetch_coordinates_from_graph()
+
+        result = 0
+        for func, coord in zip(args[0], coordinates):
+            result += tf.gradients(func, coord)[0]
+
+        return result
+
+    def laplace(self, *args, **kwargs):
+        """ Laplace-operator.
+        """
+        return self.div(self.D(args[0]))
 
     @staticmethod
     def P(*args, **kwargs):
@@ -136,7 +175,17 @@ class TFLetters(Letters):
         tensor = graph.get_tensor_by_name(tensor_name)
         return tensor
 
-
+    def fetch_coordinates_from_graph(self):
+        """ Fetch all coordinate-tensors. """
+        coordinates = []
+        ctr = 0
+        while True:
+            try:
+                coordinates.append(self.tf_check_tensor('inputs', 'coordinates', ':' + str(ctr)))
+                ctr += 1
+            except:
+                break
+        return coordinates
 
 class NPLetters(Letters):
     """ NumPy implementations of custom letters. """
@@ -156,7 +205,7 @@ class NPLetters(Letters):
 class TorchLetters(Letters):
     """ PyTorch implementations of custom letters. """
     #pylint: disable=abstract-method
-    _ = torch, ConvBlock
+    #    _ = torch, ConvBlock
 
     @staticmethod
     def D(*args, **kwargs):
