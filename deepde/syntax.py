@@ -26,7 +26,7 @@ MATH_TOKENS = ['sin', 'cos', 'tan',
                'sqrt', 'sign',
                ]
 
-CUSTOM_TOKENS = ['D', 'P', 'V', 'C', 'R', 'grad', 'laplace', 'Δ']
+CUSTOM_TOKENS = ['D', 'P', 'V', 'C', 'R', 'grad', 'laplace', 'Δ', 'div']
 
 LABELS_MAPPING = {
     '__sub__': '-', '__rsub__': '-',
@@ -34,7 +34,8 @@ LABELS_MAPPING = {
     '__div__': '/', '__rdiv__': '/',
     '__truediv__': '/', '__rtruediv__': '/',
     '__add__': '+', '__radd__': '+',
-    '__pow__': '^', '__rpow__': '^'
+    '__pow__': '^', '__rpow__': '^',
+    '__matmul__': '@', '__rmatmul__': '@'
 }
 
 
@@ -96,7 +97,7 @@ def get_unique_parameters(tree):
     """ Get unique names of parameters-variables (those containing 'P' in its name) from a parse-tree.
     """
     # pylint: disable=protected-access
-    if isinstance(tree, (int, float, str, tf.Tensor, tf.Variable)):
+    if isinstance(tree, (int, float, str, tf.Tensor, tf.Variable, list, np.ndarray)):
         return []
     if tree.name == 'P':
         return [tree._args[0]]

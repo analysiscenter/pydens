@@ -34,8 +34,17 @@ def add_aliases(**kwargs):
         return cls
     return _wrapper
 
+class GradArray(np.ndarray):
+    """ Stores arrays of differentials. Allows tensor operations on n-dimensional
+    derivatives and simple np.arrays (for instance, multiplication of a matrix on
+    gradient-vector)
+    """
+    def __matmul__(self, other):
+        return np.dot(self, other)
 
-@add_aliases(grad='D', d='D')
+    def __rmatmul__(self, other):
+        return np.dot(other, self)
+
 class Letters(ABC):
     """ Abstract class for custom letters. Defines which letters should be implemented. """
     @abstractmethod
@@ -58,20 +67,30 @@ class Letters(ABC):
     def C(self, *args, **kwargs):
         """ `C` letter: small neural network inside equation. """
 
-@add_aliases(Δ='laplace')
+@add_aliases(grad='D', d='D', Δ='laplace')
 class TFLetters(Letters):
     """ TensorFlow implementations of custom letters. """
     def D(self, *args, **kwargs):
         _ = kwargs
-        if len(args) > 1:
-            return tf.gradients(args[0], args[1])[0]
+        func = args[0]
+        if len(args) == 1:
+            coordinates = self.fetch_coordinates_from_graph()
+        else:
+            coordinates = args[1]
 
-        # return vector-gradient
-        coordinates = self.fetch_coordinates_from_graph()
-        return [tf.gradients(args[0], coordinate) for coordinate in coordinates]
+        # case of array-like variable
+        if hasattr(coordinates, '__len__'):
+            return np.stack([self.D(func, coordinate) for coordinate in coordinates],
+                            axis=-1).view(GradArray)
+
+        # case of array-like input
+        if hasattr(func, '__len__'):
+            return np.stack([self.D(func_, coordinates) for func_ in func], axis=0).view(GradArray)
+
+        return tf.gradients(func, coordinates)[0]
 
     def div(self, *args, **kwargs):
-        """ Divergenve of a vector field.
+        """ Divergence of a vector field.
         """
         _ = kwargs
 
