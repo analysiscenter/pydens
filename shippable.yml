@@ -12,7 +12,7 @@ build:
     image_tag: $TAG
   ci:
     - pip3 install pandas==0.22.0
-    - find ./deepde -not -path "./deepde/batchflow/*" -iname "*.py" | xargs -r pylint -rn --rcfile pylintrc
+    - find ./pydens -not -path "./pydens/batchflow/*" -iname "*.py" | xargs -r pylint -rn --rcfile pylintrc
 
 integrations:
   hub:

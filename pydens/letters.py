@@ -1,4 +1,4 @@
-""" Custom mathematical tokens for `deepde` syntax. """
+""" Custom mathematical tokens for `pydens` syntax. """
 
 from abc import ABC, abstractmethod
 
@@ -6,23 +6,18 @@ import numpy as np
 import tensorflow as tf
 
 try:
-    import torch
-except:
-    pass
-
-try:
     from autograd import grad
     import autograd.numpy as autonp
 except ImportError:
     pass
 
-#pylint: disable=no-name-in-module, import-error
-from .batchflow.models.tf.layers import conv_block
-
 try:
-    from .batchflow.models.torch.layers import ConvBlock
+    import torch
 except:
     pass
+
+#pylint: disable=no-name-in-module, import-error
+from .batchflow.models.tf.layers import conv_block
 
 
 def add_aliases(**kwargs):
@@ -34,6 +29,7 @@ def add_aliases(**kwargs):
         return cls
     return _wrapper
 
+
 class GradArray(np.ndarray):
     """ Stores arrays of differentials. Allows tensor operations on n-dimensional
     derivatives and simple np.arrays (for instance, multiplication of a matrix on
@@ -44,6 +40,7 @@ class GradArray(np.ndarray):
 
     def __rmatmul__(self, other):
         return np.dot(other, self)
+
 
 class Letters(ABC):
     """ Abstract class for custom letters. Defines which letters should be implemented. """

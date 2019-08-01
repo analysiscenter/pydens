@@ -2,17 +2,16 @@
 
 from tqdm import tqdm_notebook, tqdm
 
-from .model_tf import TFDeep
+from .model_tf import TFDeepGalerkin
 
 
-
-class DeepSolver:
-    """ Wrapper around `TFDeep` and `TorchDeep` to surpass BatchFlow's syntax sugar.
+class Solver:
+    """ Wrapper around `TFDeepGalerkin` to surpass BatchFlow's syntax sugar.
 
     Parameters
     ----------
     model_class : class
-        class to use when buliding the model. Should inherit `TFDeep` or `TorchDeep` class.
+        class to use when buliding the model. Should inherit `TFDeepGalerkin` class.
     config : dict
         Configuration of model. Supports all of the options from `model_class`.
     """

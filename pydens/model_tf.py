@@ -1,4 +1,4 @@
-""" TensorFlow implementation of model for solving partial differential equations. Inspired by
+""" TensorFlow implementation of Deep Galerkin-model for solving partial differential equations. Inspired by
 Sirignano J., Spiliopoulos K. "`DGM: A deep learning algorithm for solving partial differential equations
 <http://arxiv.org/abs/1708.07469>`_"
 """
@@ -9,11 +9,11 @@ import tensorflow as tf
 #pylint: disable=no-name-in-module, import-error
 from .batchflow.models.tf import TFModel
 from .batchflow.models.tf.layers import conv_block
-from .syntax import get_num_parameters
+from .syntax_tree import get_num_parameters
 
 
 
-class TFDeep(TFModel):
+class TFDeepGalerkin(TFModel):
     r"""TensorFlow model for solving partial differential equations (PDEs) of up to the second order
     on rectangular domains using neural networks.
 

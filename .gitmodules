@@ -1,3 +1,3 @@
-[submodule "deepde/batchflow"]
-	path = deepde/batchflow
+[submodule "pydens/batchflow"]
+	path = pydens/batchflow
 	url = https://github.com/analysiscenter/batchflow.git
