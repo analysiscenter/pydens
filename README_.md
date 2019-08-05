@@ -4,12 +4,15 @@
 
 ## Getting started with **PyDEns**: solving common PDEs
 Let's solve poisson equation
+
 $$
 \frac{\partial^2 f}{\partial x^2} + \frac{\partial^2 f}{\partial y^2} = 5\sin[\pi(x + y)],
 \\ \quad (x, y) \in [0, 1]^2,
 f(0, y)=f(x, 0)=f(1, y)=f(x, 1)=1.
 $$
+
 using simple feed-forward neural network with `tahn`-activations. We only need to set up a **PyDEns**-model for solving the task at hand
+
 ```python
 from pydens import Solver, NumpySampler
 import numpy as np
@@ -28,7 +31,9 @@ config = {'body': body,
 
 us = NumpySampler('u', dim=2)
 ```
+
 and run the optimization procedure
+
 ```python
 dg = Solver(config)
 dg.fit(batch_size=100, sampler=us, n_iters=1500, bar='notebook')

@@ -4,8 +4,11 @@
 
 ## Getting started with **PyDEns**: solving common PDEs
 Let's solve poisson equation
+
 <p align="center"><img src="svgs/9a0da3a3efa302a1106c932f78061513.svg?invert_in_darkmode" align=middle width=621.3306pt height=38.973825pt/></p>
+
 using simple feed-forward neural network with `tahn`-activations. We only need to set up a **PyDEns**-model for solving the task at hand
+
 ```python
 from pydens import Solver, NumpySampler
 import numpy as np
@@ -24,7 +27,9 @@ config = {'body': body,
 
 us = NumpySampler('u', dim=2)
 ```
+
 and run the optimization procedure
+
 ```python
 dg = Solver(config)
 dg.fit(batch_size=100, sampler=us, n_iters=1500, bar='notebook')
