@@ -16,7 +16,7 @@ class Solver:
         Configuration of model. Supports all of the options from `model_class`.
     """
     def __init__(self, config, model_class=None):
-        model_class = model_class or config.get('model_class') or TFDeep
+        model_class = model_class or config.get('model_class') or TFDeepGalerkin
         self.model = model_class(config)
 
 

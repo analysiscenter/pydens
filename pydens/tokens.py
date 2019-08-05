@@ -10,6 +10,7 @@ except:
     pass
 
 from .syntax_tree import SyntaxTreeNode
+from .letters import TFLetters, TorchLetters, NPLetters
 
 MATH_TOKENS = ['sin', 'cos', 'tan',
                'asin', 'acos', 'atan',
