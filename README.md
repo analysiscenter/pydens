@@ -5,7 +5,7 @@
 ## Getting started with **PyDEns**: solving common PDEs
 Let's solve poisson equation
 
-<p align="center"><img src="https://rawgit.com/analysiscenter/pydens/None/svgs/9a0da3a3efa302a1106c932f78061513.svg?invert_in_darkmode" align=middle width=621.3306pt height=38.973825pt/></p>
+<p align="center"><img src="svgs/eq_poisson.svg?invert_in_darkmode" align=middle width=621.3306pt height=38.973825pt/></p>
 
 using simple feed-forward neural network with `tahn`-activations. We only need to set up a **PyDEns**-model for solving the task at hand
 
@@ -35,6 +35,9 @@ dg = Solver(config)
 dg.fit(batch_size=100, sampler=us, n_iters=1500, bar='notebook')
 ```
 in a fraction of second we've got a mesh-free approximation of the solution on **[0, 1]X[0, 1]**-square:
+
+<p align="center"><img src="svgs/sol_poisson.svg?invert_in_darkmode" align=middle height=250.973825pt/></p>
+
 
 ## Going deeper into **PyDEns**-capabilities
 **PyDEns** allows to do much more than just solve common PDEs: it also deals with (i) parametric families of PDEs and (ii) PDEs with trainable coefficients.
