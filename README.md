@@ -6,7 +6,7 @@
 Let's solve poisson equation
 
 <p align="center">
-<img src="./pngs/poisson_eq.png?invert_in_darkmode" align=middle width=621.3306pt height=38.973825pt/>
+<img src="./imgs/poisson_eq.png?invert_in_darkmode" align=middle width=621.3306pt height=38.973825pt/>
 </p>
 
 using simple feed-forward neural network with `tahn`-activations. We only need to set up a **PyDEns**-model for solving the task at hand
@@ -39,14 +39,53 @@ dg.fit(batch_size=100, sampler=us, n_iters=1500, bar='notebook')
 in a fraction of second we've got a mesh-free approximation of the solution on **[0, 1]X[0, 1]**-square:
 
 <p align="center">
-<img src="./pngs/poisson_sol.png?invert_in_darkmode" align=middle height=250.973825pt/>
+<img src="./imgs/poisson_sol.png?invert_in_darkmode" align=middle height=265.973825pt/>
 </p>
 
 ## Going deeper into **PyDEns**-capabilities
 **PyDEns** allows to do much more than just solve common PDEs: it also deals with (i) parametric families of PDEs and (ii) PDEs with trainable coefficients.
 
 ### Solving parametric families of PDEs
+Consider a *family* of ordinary differential equations
 
+<p align="center">
+<img src="./imgs/sinus_eq.png?invert_in_darkmode" align=middle height=40.973825pt/>
+</p>
+
+Clearly, the solution is **sin** with a phase parametrized by ϵ:
+
+<p align="center">
+<img src="./imgs/sinus_sol_expr.png?invert_in_darkmode" align=middle height=19.973825pt/>
+</p>
+
+Solving this problem is just as easy as solving common PDEs:
+
+```python
+pde = {'n_dims': 1,
+       'form': lambda u, t, e: D(u, t) - P(e) * np.pi * cos(P(e) * np.pi * t),
+       'initial_condition': 1
+      }
+
+body = {'layout': 'fa fa f',
+        'units': [10, 15, 1],
+        'activation': [tf.nn.tanh, tf.nn.tanh]}
+loss = 'mse'
+
+config = {'body': body,
+          'pde': pde,
+          'loss': loss}
+
+s = NumpySampler('uniform') & NumpySampler('uniform', low=1, high=5)
+
+dg = Solver(config)
+dg.fit(batch_size=1000, sampler=s, n_iters=5000, bar='notebook')
+```
+
+Check out the result:
+
+<p align="center">
+<img src="./imgs/sinus_sol.gif?invert_in_darkmode" align=middle height=250.973825pt/>
+</p>
 
 ### Solving PDEs with trainable coefficients
 
