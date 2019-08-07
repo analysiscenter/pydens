@@ -6,6 +6,10 @@
 Let's solve poisson equation
 
 <p align="center">
+![Image](./svgs/eq_poisson.svg)
+</p>
+
+<p align="center">
 <img src="./svgs/eq_poisson.svg?invert_in_darkmode" align=middle width=621.3306pt height=38.973825pt/>
 </p>
 
@@ -37,6 +41,11 @@ dg = Solver(config)
 dg.fit(batch_size=100, sampler=us, n_iters=1500, bar='notebook')
 ```
 in a fraction of second we've got a mesh-free approximation of the solution on **[0, 1]X[0, 1]**-square:
+
+<p align="center">
+![Image](./svgs/sol_poisson.svg)
+</p>
+
 
 <p align="center">
 <img src="./svgs/sol_poisson.svg?invert_in_darkmode" align=middle height=250.973825pt/>
