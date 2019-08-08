@@ -22,6 +22,7 @@ class Solver:
 
 
     def build_config(self, config, layer_size):
+        """ Add default neural network configuration. """
         n_dims = config['pde']['n_dims']
 
         if config.get('body') is None:

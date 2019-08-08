@@ -10,7 +10,7 @@ max-locals=25
 good-names=D, P, R, V, C, i, op, x, bar
 
 [MESSAGE CONTROL]
-disable=no-value-for-parameter,no-self-use,too-few-public-methods,unsubscriptable-object,no-method-argument,no-member,arguments-differ,len-as-condition,keyword-arg-before-vararg,too-many-locals,logging-format-interpolation
+disable=no-value-for-parameter,no-self-use,too-few-public-methods,unsubscriptable-object,no-method-argument,no-member,arguments-differ,len-as-condition,keyword-arg-before-vararg,too-many-locals,logging-format-interpolation, abstract-class-instantiated
 
 [TYPECHECK]
 ignored-modules=numpy, numba

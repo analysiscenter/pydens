@@ -13,7 +13,7 @@ except ImportError:
 
 try:
     import torch
-except:
+except ImportError:
     pass
 
 #pylint: disable=no-name-in-module, import-error
@@ -64,6 +64,8 @@ class Letters(ABC):
     def C(self, *args, **kwargs):
         """ `C` letter: small neural network inside equation. """
 
+
+
 @add_aliases(grad='D', d='D', Δ='laplace')
 class TFLetters(Letters):
     """ TensorFlow implementations of custom letters. """
@@ -103,6 +105,7 @@ class TFLetters(Letters):
     def laplace(self, *args, **kwargs):
         """ Laplace-operator.
         """
+        _ = kwargs
         return self.div(self.D(args[0]))
 
     @staticmethod
@@ -199,7 +202,7 @@ class TFLetters(Letters):
             try:
                 coordinates.append(self.tf_check_tensor('inputs', 'coordinates', ':' + str(ctr)))
                 ctr += 1
-            except:
+            except KeyError:
                 break
         return coordinates
 

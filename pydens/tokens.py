@@ -6,7 +6,7 @@ import tensorflow as tf
 
 try:
     import torch
-except:
+except ImportError:
     pass
 
 from .syntax_tree import SyntaxTreeNode

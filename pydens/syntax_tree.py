@@ -10,7 +10,6 @@ try:
 except ImportError:
     pass
 
-from .letters import TFLetters, NPLetters, TorchLetters
 
 
 LABELS_MAPPING = {
