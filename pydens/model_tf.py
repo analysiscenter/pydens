@@ -90,6 +90,7 @@ class TFDeepGalerkin(TFModel):
         config['ansatz'] = {}
         config['common/time_multiplier'] = 'sigmoid'
         config['common/bind_bc_ic'] = True
+        config['loss'] = 'mse'
         return config
 
     def build_config(self, names=None):

@@ -1,5 +1,5 @@
 """ W. """
-
+import tensorflow as tf
 from tqdm import tqdm_notebook, tqdm
 
 from .model_tf import TFDeepGalerkin
@@ -15,9 +15,33 @@ class Solver:
     config : dict
         Configuration of model. Supports all of the options from `model_class`.
     """
-    def __init__(self, config, model_class=None):
+    def __init__(self, config, model_class=None, layer_size=15):
         model_class = model_class or config.get('model_class') or TFDeepGalerkin
+        config = self.build_config(config, layer_size)
         self.model = model_class(config)
+
+
+    def build_config(self, config, layer_size):
+        n_dims = config['pde']['n_dims']
+
+        if config.get('body') is None:
+            block = 'fa' if n_dims == 1 else 'Rfa+'
+            layout = 'fafa ' + block*(n_dims-1)
+            units = [layer_size//1.5] + [layer_size]*(n_dims)
+            default_body = dict(layout=layout,
+                                units=units,
+                                activation=tf.nn.tanh)
+            config['body'] = default_body
+
+        if config.get('head') is None:
+            default_head = dict(layout='fa f',
+                                units=[layer_size//1.5, 1],
+                                activation=tf.nn.tanh)
+            config['head'] = default_head
+
+        from pprint import pprint
+        pprint(config)
+        return config
 
 
     def fit(self, batch_size, sampler, n_iters, train_mode='', fetches=None, bar=False):
