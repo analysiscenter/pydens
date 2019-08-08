@@ -40,8 +40,6 @@ class Solver:
                                 activation=tf.nn.tanh)
             config['head'] = default_head
 
-        from pprint import pprint
-        pprint(config)
         return config
 
 
