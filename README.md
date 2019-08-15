@@ -39,7 +39,7 @@ dg.fit(batch_size=100, sampler=us, n_iters=1500, bar='notebook')
 in a fraction of second we've got a mesh-free approximation of the solution on **[0, 1]X[0, 1]**-square:
 
 <p align="center">
-<img src="./imgs/poisson_sol.png?invert_in_darkmode" align=middle height=265.973825pt/>
+<img src="./imgs/poisson_sol.png?invert_in_darkmode" align=middle height=295.973825pt/>
 </p>
 
 ## Going deeper into **PyDEns**-capabilities
@@ -55,7 +55,7 @@ Consider a *family* of ordinary differential equations
 Clearly, the solution is **sin** with a phase parametrized by ϵ:
 
 <p align="center">
-<img src="./imgs/sinus_sol_expr.png?invert_in_darkmode" align=middle height=19.973825pt/>
+<img src="./imgs/sinus_sol_expr.png?invert_in_darkmode" align=middle height=18.973825pt/>
 </p>
 
 Solving this problem is just as easy as solving common PDEs:
@@ -63,13 +63,7 @@ Solving this problem is just as easy as solving common PDEs:
 ```python
 pde = {'n_dims': 1,
        'form': lambda u, t, e: D(u, t) - P(e) * np.pi * cos(P(e) * np.pi * t),
-       'initial_condition': 1
-      }
-
-body = {'layout': 'fa fa f',
-        'units': [10, 15, 1],
-        'activation': [tf.nn.tanh, tf.nn.tanh]}
-loss = 'mse'
+       'initial_condition': 1}
 
 config = {'body': body,
           'pde': pde,
@@ -89,13 +83,37 @@ Check out the result:
 
 ### Solving PDEs with trainable coefficients
 
+With **PyDEns** things can get even more interesting! Assume that the *initial state of the system is unknown and to be determined*:
+
+<p align="center">
+<img src="./imgs/sinus_eq_trainable.png?invert_in_darkmode" align=middle height=40.973825pt/>
+</p>
+
+Of course, without additional information, [the problem is undefined](https://en.wikipedia.org/wiki/Initial_value_problem). To make things better, let's fix the state of the system at some other point:
+
+<p align="center">
+<img src="./imgs/sinus_eq_middle_fix.png?invert_in_darkmode" align=middle height=18.973825pt/>
+</p>
+
+Setting this problem requires a slightly more complex configuring:
+
+```python
+pde = {'n_dims': 1,
+       'form': lambda u, t: D(u, t) - 2 * np.pi * cos(2 * np.pi * t),
+       'initial_condition': lambda: V(3.0, 'initial')}
+
+config = {'pde': pde,
+          'track': {'u05': lambda u, t: u - 2,
+                    'dt': lambda u, t: D(u, t)},
+          'train_steps': {'initial_condition_step': {'scope': 'addendums',
+                                                     'loss': {'name': 'mse', 'predictions': 'u05'}},
+                          'equation_step': {'scope': '-addendums'}}}
+
+s1 = NumpySampler('uniform')
+s2 = ConstantSampler(0.5)
+```
+
 ## Installation
-
-### Installation as a `python`-package
-
-With [pip](https://pip.pypa.io/en/stable/):
-
-    pip3 install git+https://github.com/analysiscenter/pydens.git
 
 ### Installation as a project repository:
 
