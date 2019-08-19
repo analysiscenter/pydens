@@ -10,7 +10,7 @@
  - parametric families of PDEs
  - PDEs with trainable coefficients
 
-This page outlines main capabilities of **PyDEns**. To get anin-depth understanding we suggest you to also read [the tutorial](https://github.com/analysiscenter/pydens/blob/master/tutorials/PDE_solving.ipynb).
+This page outlines main capabilities of **PyDEns**. To get an in-depth understanding we suggest you to also read [the tutorial](https://github.com/analysiscenter/pydens/blob/master/tutorials/PDE_solving.ipynb).
 
 ## Getting started with **PyDEns**: solving common PDEs
 Let's solve poisson equation
@@ -143,3 +143,20 @@ Check out the results:
   Do not forget to use the flag ``--recursive`` to make sure that ``BatchFlow`` submodule is also cloned.
 
         git clone --recursive https://github.com/analysiscenter/pydens.git
+
+
+## Citing PyDEns
+
+Please cite **PyDEns** if it helps your research.
+
+```
+Roman Khudorozhkov, Sergey Tsimfer, Alexander Koryagin. PyDEns framework for solving PDEs with deep learning. 2019.
+```
+
+```
+@misc{pydens_2019,
+  author       = {Khudorozhkov R., Tsimfer S., Koryagin. A.},
+  title        = {PyDEns framework for solving PDEs with deep learning},
+  year         = 2019
+}
+```
