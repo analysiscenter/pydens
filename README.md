@@ -48,7 +48,7 @@ dg.fit(batch_size=100, sampler=us, n_iters=1500)
 in a fraction of second we've got a mesh-free approximation of the solution on **[0, 1]X[0, 1]**-square:
 
 <p align="center">
-<img src="./imgs/poisson_sol.png?invert_in_darkmode" align=middle height=330.973825pt/>
+<img src="./imgs/poisson_sol.png?invert_in_darkmode" align=middle height=350.973825pt/>
 </p>
 
 ## Going deeper into **PyDEns**-capabilities
