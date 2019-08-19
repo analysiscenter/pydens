@@ -1,6 +1,16 @@
+[![License](https://img.shields.io/github/license/analysiscenter/pydens.svg)](https://www.apache.org/licenses/LICENSE-2.0)
+[![Python](https://img.shields.io/badge/python-3.5-blue.svg)](https://python.org)
+[![TensorFlow](https://img.shields.io/badge/TensorFlow-1.14-orange.svg)](https://tensorflow.org)
+[![Run Status](https://api.shippable.com/projects/58c6ada92e042a0600297f61/badge?branch=master)](https://app.shippable.com/github/analysiscenter/batchflow)
+
 # PyDEns
 
-**PyDEns** is a framework for solving Partial Differential Equations (PDEs) using neural networks. With **PyDEns** a user can solve PDEs from a large family including [heat-equation](https://en.wikipedia.org/wiki/Heat_equation), [poisson equation](https://en.wikipedia.org/wiki/Poisson%27s_equation) and [wave-equation](https://en.wikipedia.org/wiki/Wave_equation).
+**PyDEns** is a framework for solving Partial Differential Equations (PDEs) using neural networks. With **PyDEns** a user can solve
+ - PDEs from a large family including [heat-equation](https://en.wikipedia.org/wiki/Heat_equation), [poisson equation](https://en.wikipedia.org/wiki/Poisson%27s_equation) and [wave-equation](https://en.wikipedia.org/wiki/Wave_equation)
+ - parametric families of PDEs
+ - PDEs with trainable coefficients
+
+This page outlines main capabilities of **PyDEns**. To get anin-depth understanding we suggest you to also read [the tutorial](https://github.com/analysiscenter/pydens/blob/master/tutorials/PDE_solving.ipynb).
 
 ## Getting started with **PyDEns**: solving common PDEs
 Let's solve poisson equation
@@ -39,7 +49,7 @@ dg.fit(batch_size=100, sampler=us, n_iters=1500, bar='notebook')
 in a fraction of second we've got a mesh-free approximation of the solution on **[0, 1]X[0, 1]**-square:
 
 <p align="center">
-<img src="./imgs/poisson_sol.png?invert_in_darkmode" align=middle height=295.973825pt/>
+<img src="./imgs/poisson_sol.png?invert_in_darkmode" align=middle height=330.973825pt/>
 </p>
 
 ## Going deeper into **PyDEns**-capabilities
@@ -83,7 +93,7 @@ Check out the result:
 
 ### Solving PDEs with trainable coefficients
 
-With **PyDEns** things can get even more interesting! Assume that the *initial state of the system is unknown and to be determined*:
+With **PyDEns** things can get even more interesting! Assume that the *initial state of the system is unknown and yet to be determined*:
 
 <p align="center">
 <img src="./imgs/sinus_eq_trainable.png?invert_in_darkmode" align=middle height=40.973825pt/>
@@ -95,7 +105,7 @@ Of course, without additional information, [the problem is undefined](https://en
 <img src="./imgs/sinus_eq_middle_fix.png?invert_in_darkmode" align=middle height=18.973825pt/>
 </p>
 
-Setting this problem requires a slightly more complex configuring:
+Setting this problem requires a [slightly more complex configuring]():
 
 ```python
 pde = {'n_dims': 1,
@@ -112,6 +122,19 @@ config = {'pde': pde,
 s1 = NumpySampler('uniform')
 s2 = ConstantSampler(0.5)
 ```
+
+Model-fitting comes in two parts now: (i) solving the equation and (ii) adjusting initial condition to satisfy the additional constraint:
+
+```python
+dg.fit(batch_size=150, sampler=s1, n_iters=2000, train_mode='equation_step')
+dg.fit(batch_size=150, sampler=s2, n_iters=2000, train_mode='initial_condition_step')
+```
+
+Check out the results:
+
+<p align="center">
+<img src="./imgs/converging_sol.gif?invert_in_darkmode" align=middle height=250.973825pt/>
+</p>
 
 ## Installation
 
