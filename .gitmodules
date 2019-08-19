@@ -1,0 +1,3 @@
+[submodule "pydens/batchflow"]
+	path = pydens/batchflow
+	url = https://github.com/analysiscenter/batchflow.git
