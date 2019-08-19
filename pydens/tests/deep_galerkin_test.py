@@ -1,8 +1,8 @@
 """ Tests for DeepGalerkin model for solving PDE's. """
 import warnings
-import pytest
-
 from glob import glob
+
+import pytest
 
 BAD_PREFIXES = ['get_ipython', 'plt', 'axes', 'fig.', 'fig,',
                 'ipyw', 'interact(']

@@ -1,4 +1,4 @@
-""" W. """
+""" PDE-Solver class. Wraps up TFDeepGalerkin-model. """
 import tensorflow as tf
 from tqdm import tqdm_notebook, tqdm
 

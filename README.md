@@ -5,7 +5,7 @@
 
 # PyDEns
 
-**PyDEns** is a framework for solving Partial Differential Equations (PDEs) using neural networks. With **PyDEns** a user can solve
+**PyDEns** is a framework for solving Partial Differential Equations (PDEs) using neural networks. With **PyDEns** one can solve
  - PDEs from a large family including [heat-equation](https://en.wikipedia.org/wiki/Heat_equation), [poisson equation](https://en.wikipedia.org/wiki/Poisson%27s_equation) and [wave-equation](https://en.wikipedia.org/wiki/Wave_equation)
  - parametric families of PDEs
  - PDEs with trainable coefficients
@@ -34,8 +34,7 @@ body = {'layout': 'fa fa fa f',
         'activation': [tf.nn.tanh, tf.nn.tanh, tf.nn.tanh]}
 
 config = {'body': body,
-          'pde': pde,
-          'loss': 'mse'}
+          'pde': pde}
 
 us = NumpySampler('u', dim=2)
 ```
@@ -44,7 +43,7 @@ and run the optimization procedure
 
 ```python
 dg = Solver(config)
-dg.fit(batch_size=100, sampler=us, n_iters=1500, bar='notebook')
+dg.fit(batch_size=100, sampler=us, n_iters=1500)
 ```
 in a fraction of second we've got a mesh-free approximation of the solution on **[0, 1]X[0, 1]**-square:
 
@@ -62,7 +61,7 @@ Consider a *family* of ordinary differential equations
 <img src="./imgs/sinus_eq.png?invert_in_darkmode" align=middle height=40.973825pt/>
 </p>
 
-Clearly, the solution is **sin** with a phase parametrized by ϵ:
+Clearly, the solution is a **sin** wave with a phase parametrized by ϵ:
 
 <p align="center">
 <img src="./imgs/sinus_sol_expr.png?invert_in_darkmode" align=middle height=18.973825pt/>
@@ -75,14 +74,12 @@ pde = {'n_dims': 1,
        'form': lambda u, t, e: D(u, t) - P(e) * np.pi * cos(P(e) * np.pi * t),
        'initial_condition': 1}
 
-config = {'body': body,
-          'pde': pde,
-          'loss': loss}
-
+config = {'pde': pde}
+# One for argument, one for parameter
 s = NumpySampler('uniform') & NumpySampler('uniform', low=1, high=5)
 
 dg = Solver(config)
-dg.fit(batch_size=1000, sampler=s, n_iters=5000, bar='notebook')
+dg.fit(batch_size=1000, sampler=s, n_iters=5000)
 ```
 
 Check out the result:
