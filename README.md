@@ -152,7 +152,7 @@ Roman Khudorozhkov, Sergey Tsimfer, Alexander Koryagin. PyDEns framework for sol
 
 ```
 @misc{pydens_2019,
-  author       = {Khudorozhkov R., Tsimfer S., Koryagin. A.},
+  author       = {Khudorozhkov R. and Tsimfer S. and Koryagin. A.},
   title        = {PyDEns framework for solving PDEs with deep learning},
   year         = 2019
 }
