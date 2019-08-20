@@ -19,12 +19,19 @@ Let's solve poisson equation
 <img src="./imgs/poisson_eq.png?invert_in_darkmode" align=middle width=621.3306pt height=38.973825pt/>
 </p>
 
-using simple feed-forward neural network with `tahn`-activations. We only need to set up a **PyDEns**-model for solving the task at hand
+using simple feed-forward neural network with `tahn`-activations. The first step is to add a grammar of *tokens* - expressions used for writing down differential equations - to the current namespace:
 
 ```python
-from pydens import Solver, NumpySampler
+from pydens import Solver, NumpySampler, add_tokens
 import numpy as np
 
+add_tokens()
+# we've now got functions like sin, cos, D in our namespace. More on that later!
+```
+
+You can now set up a **PyDEns**-model for solving the task at hand. Note the use of differentiation token `D` and `sin`-token:
+
+```python
 pde = {'n_dims': 2,
        'form': lambda u, x, y: D(D(u, x), x) + D(D(u, y), y) - 5 * sin(np.pi * (x + y)),
        'boundary_condition': 1}
@@ -67,7 +74,7 @@ Clearly, the solution is a **sin** wave with a phase parametrized by ϵ:
 <img src="./imgs/sinus_sol_expr.png?invert_in_darkmode" align=middle height=18.973825pt/>
 </p>
 
-Solving this problem is just as easy as solving common PDEs:
+Solving this problem is just as easy as solving common PDEs. You only need to introduce parameter in the equation, using token `P`:
 
 ```python
 pde = {'n_dims': 1,
@@ -102,16 +109,15 @@ Of course, without additional information, [the problem is undefined](https://en
 <img src="./imgs/sinus_eq_middle_fix.png?invert_in_darkmode" align=middle height=18.973825pt/>
 </p>
 
-Setting this problem requires a [slightly more complex configuring]():
+Setting this problem requires a [slightly more complex configuring](https://github.com/analysiscenter/pydens/blob/master/tutorials/PDE_solving.ipynb). Note the use of `V`-token, that stands for trainable variable, in the initial condition of the problem.
 
 ```python
 pde = {'n_dims': 1,
        'form': lambda u, t: D(u, t) - 2 * np.pi * cos(2 * np.pi * t),
-       'initial_condition': lambda: V(3.0, 'initial')}
+       'initial_condition': lambda: V(3.0)}
 
 config = {'pde': pde,
-          'track': {'u05': lambda u, t: u - 2,
-                    'dt': lambda u, t: D(u, t)},
+          'track': {'u05': lambda u, t: u - 2},
           'train_steps': {'initial_condition_step': {'scope': 'addendums',
                                                      'loss': {'name': 'mse', 'predictions': 'u05'}},
                           'equation_step': {'scope': '-addendums'}}}
