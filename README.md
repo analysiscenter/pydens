@@ -5,8 +5,8 @@
 
 # PyDEns
 
-**PyDEns** is a framework for solving Partial Differential Equations (PDEs) using neural networks. With **PyDEns** one can solve
- - PDEs from a large family including [heat-equation](https://en.wikipedia.org/wiki/Heat_equation), [poisson equation](https://en.wikipedia.org/wiki/Poisson%27s_equation) and [wave-equation](https://en.wikipedia.org/wiki/Wave_equation)
+**PyDEns** is a framework for solving Ordinary and Partial Differential Equations (ODEs & PDEs) using neural networks. With **PyDEns** one can solve
+ - PDEs & ODEs from a large family including [heat-equation](https://en.wikipedia.org/wiki/Heat_equation), [poisson equation](https://en.wikipedia.org/wiki/Poisson%27s_equation) and [wave-equation](https://en.wikipedia.org/wiki/Wave_equation)
  - parametric families of PDEs
  - PDEs with trainable coefficients
 

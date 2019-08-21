@@ -1,4 +1,4 @@
-""" Tests for DeepGalerkin model for solving PDE's. """
+""" Tests for PyDEns-module. """
 import warnings
 from glob import glob
 
