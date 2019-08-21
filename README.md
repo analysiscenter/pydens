@@ -29,7 +29,7 @@ add_tokens()
 # we've now got functions like sin, cos, D in our namespace. More on that later!
 ```
 
-You can now set up a **PyDEns**-model for solving the task at hand. Note the use of differentiation token `D` and `sin`-token:
+You can now set up a **PyDEns**-model for solving the task at hand using *configuration dictionary*. Note the use of differentiation token `D` and `sin`-token:
 
 ```python
 pde = {'n_dims': 2,
@@ -43,7 +43,7 @@ body = {'layout': 'fa fa fa f',
 config = {'body': body,
           'pde': pde}
 
-us = NumpySampler('u', dim=2)
+us = NumpySampler('uniform', dim=2) # procedure for sampling points from domain
 ```
 
 and run the optimization procedure
@@ -87,6 +87,7 @@ s = NumpySampler('uniform') & NumpySampler('uniform', low=1, high=5)
 
 dg = Solver(config)
 dg.fit(batch_size=1000, sampler=s, n_iters=5000)
+# solving the whole family takes no more than a couple of seconds!
 ```
 
 Check out the result:
@@ -109,7 +110,7 @@ Of course, without additional information, [the problem is undefined](https://en
 <img src="./imgs/sinus_eq_middle_fix.png?invert_in_darkmode" align=middle height=18.973825pt/>
 </p>
 
-Setting this problem requires a [slightly more complex configuring](https://github.com/analysiscenter/pydens/blob/master/tutorials/PDE_solving.ipynb). Note the use of `V`-token, that stands for trainable variable, in the initial condition of the problem.
+Setting this problem requires a [slightly more complex configuring](https://github.com/analysiscenter/pydens/blob/master/tutorials/PDE_solving.ipynb). Note the use of `V`-token, that stands for trainable variable, in the initial condition of the problem. Also pay attention to `train_steps`-key of the `config`, where *two train steps* are configured: one for better solving the equation and the other for satisfying the additional constraint:
 
 ```python
 pde = {'n_dims': 1,
