@@ -1,6 +1,7 @@
 """ Util functions for examples.
 """
 
+import numpy as np
 import matplotlib.pyplot as plt
 
 def plot_loss(loss, color='powderblue'):
