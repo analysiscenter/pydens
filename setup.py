@@ -3,7 +3,7 @@ PyDEns is framework for solving Partial and Ordinary Differential Equations usin
 networks.
 """
 import re
-from setuptools import find_packages
+from setuptools import setup, find_packages
 
 
 with open('pydens/__init__.py', 'r') as f:
