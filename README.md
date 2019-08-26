@@ -142,12 +142,19 @@ Check out the results:
 
 ## Installation
 
+### Installation as a pip-package
+
+        pip install git+https://github.com/analysiscenter/batchflow.git  
+
+  You also have to manually install needed version of [tensorflow](https://www.tensorflow.org/install/pip).
+
 ### Installation as a project repository:
 
   Do not forget to use the flag ``--recursive`` to make sure that ``BatchFlow`` submodule is also cloned.
 
         git clone --recursive https://github.com/analysiscenter/pydens.git
 
+  In this case you need to manually install the dependencies.
 
 ## Citing PyDEns
 
