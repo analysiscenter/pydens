@@ -64,7 +64,7 @@ def plot_sections(model, timestamps=(0, 0.2, 0.4, 0.6, 0.7, 0.9), grid_size=(2, 
                   fetches=None, ylim=(0, 0.3), title=r'Heat PDE in $\mathcal{R}$: $\hat{u}$'):
     """ Plot 1d-sections of an approximation to an evolution equation.
     """
-    points = points or np.linspace(0, 1, 100)
+    points = points if points is not None else np.linspace(0, 1, 100).reshape(-1, 1)
     n_sections = len(timestamps)
     fig, axes = plt.subplots(*grid_size, figsize=(5 * grid_size[1], 5))
     for i, t_ in enumerate(timestamps):
