@@ -20,7 +20,7 @@ setup(
     license='Apache License 2.0',
     author='Data Analysis Center',
     author_email='akoriagin@nes.ru',
-    description='Framework for solving PDEs and ODEs with deep learning',
+    description='Framework for solving differential equations with deep learning',
     long_description=long_description,
     long_description_content_type="text/markdown",
     zip_safe=False,
@@ -31,7 +31,7 @@ setup(
         'tqdm>=4.19.7',
         'scipy>=0.19.1',
         'scikit-image>=0.13.1',
-        'numba'
+        'numba>=0.42',
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
