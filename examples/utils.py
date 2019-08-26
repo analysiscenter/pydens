@@ -19,7 +19,7 @@ def plot_pair(solution, model, points=None, plot_coord=None,
               title='Solution against approximation', loc=1, grid=True):
     """ Plot solution-approximation given by a pydens-model along with true solution.
     """
-    points = points or np.linspace(0, 1, 200).reshape(-1, 1)
+    points = points if points is not None else np.linspace(0, 1, 200).reshape(-1, 1)
     approxs = model.solve(points)
     points = points if plot_coord is None else points[:, plot_coord]
     true = solution(points).reshape(-1)
