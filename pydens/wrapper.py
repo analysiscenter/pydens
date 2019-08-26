@@ -95,6 +95,7 @@ class Solver:
             Points to give solution approximation on.
         fetches : str or sequence of str
             `tf.Operation`s and/or `tf.Tensor`s to calculate.
+
         Returns
         -------
         Calculated values of tensors in `fetches` in the same order and structure.
