@@ -37,18 +37,30 @@ def plot_pair(solution, model, points=None, plot_coord=None,
     plt.show()
 
 
-def show_heatmap(model, fetches=None, grid=None, cmap='viridis',
-                 title='Elliptic PDE in $\mathcal{R}^2$: approximate solution'):
+def show_heatmap(model, mode='imshow', fetches=None, grid=None, cmap='viridis',
+                 title='Elliptic PDE in $\mathcal{R}^2$: approximate solution',
+                 xlim=(0, 1), ylim=(0, 1)):
+    """ Show heatmap of a model-prediction.
     """
-    Show heatmap of a model-prediction.
-    """
-    if grid is None:
-        n_el = 100
-        grid = cart_prod(np.linspace(0, 1, n_el), np.linspace(0, 1, n_el))
+    if mode == 'imshow':
+        if grid is None:
+            num_points = 80
+            grid = cart_prod(np.linspace(*xlim, num_points), np.linspace(*ylim, num_points))
 
-    approxs = model.solve(grid, fetches=fetches)
+        approxs = model.solve(grid, fetches=fetches)
+        plt.imshow(approxs.reshape(num_points, num_points), cmap=cmap)
+    elif mode == 'contourf':
+        if grid is None:
+            num_points = 80
+            xs = np.linspace(*xlim, num_points)
+            ys = np.linspace(*ylim, num_points)
+            xs_, ys_ = np.meshgrid(xs, ys)
+            grid = cart_prod(xs, ys)
+
+        zs_ = model.solve(grid).reshape(len(xs), len(ys))
+        plt.contourf(xs_, ys_, zs_, cmap=cmap)
+
     plt.title(title, fontdict={'fontsize': 17})
-    plt.imshow(approxs.reshape(n_el, n_el), cmap=cmap)
     plt.colorbar()
     plt.show()
 
@@ -62,7 +74,7 @@ def cart_prod(*arrs):
 
 def plot_sections(model, mode='2d', timestamps=(0, 0.2, 0.4, 0.6, 0.7, 0.9), grid_size=(2, 3), points=None,
                   fetches=None, ylim=(0, 0.3), zlim=None, title=r'Heat PDE in $\mathcal{R}$: $\hat{u}$'):
-    """ Plot 1d-sections of an approximation to an evolution equation.
+    """ Plot sections of an approximation to an evolution equation.
     """
     if mode == '2d':
         points = points if points is not None else np.linspace(0, 1, 100).reshape(-1, 1)
