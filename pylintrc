@@ -8,7 +8,7 @@ max-line-length=120
 max-attributes=25
 max-args=15
 max-locals=25
-good-names=D, P, R, V, C, i, op, x, bar
+good-names=D, P, R, V, C, i, op, x, y, bar, xs, ys, wx, wy, t
 
 [MESSAGE CONTROL]
 disable=no-value-for-parameter,no-self-use,too-few-public-methods,unsubscriptable-object,no-method-argument,no-member,arguments-differ,len-as-condition,keyword-arg-before-vararg,too-many-locals,logging-format-interpolation, abstract-class-instantiated
