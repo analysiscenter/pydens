@@ -14,34 +14,37 @@ def plot_loss(loss, color='powderblue'):
     plt.show()
 
 
-def plot_pair_1d(solution, model, fetches='solution', points=None, plot_coord=None, xlabel=r'$t$',
+def plot_pair_1d(model, solution=None, fetches='solution', points=None, plot_coord=None, xlabel=r'$t$',
                  ylabel=r'$\hat{u} | u$', confidence=None, alpha=0.4, title='Solution against approximation',
-                 loc=1, grid=True, save=False, path='pair.png'):
+                 loc=1, grid=True, show=True, save=False, path='pair.png'):
     """ Visualize solution-approximation to a 1d problem (e.g., ode in $\mathcal{R}$)
     along with true solution.
     """
-    # calculate and plot approximate solution
+    # calculate and plot approximate and true solution
     points = points if points is not None else np.linspace(0, 1, 200).reshape(-1, 1)
     approxs = model.solve(points, fetches=fetches)
     points = points if plot_coord is None else points[:, plot_coord]
-    true = solution(points).reshape(-1)
-    plt.plot(points, true, 'b', linewidth=4, label='True solution', alpha=alpha + 0.15)
+    if solution is not None:
+        true = solution(points).reshape(-1)
+        plt.plot(points, true, 'b', linewidth=4, label='True solution', alpha=alpha + 0.15)
+        if confidence is not None:
+            plt.fill_between(points.reshape(-1), true - confidence, true + confidence, alpha=alpha,
+                             label='Confidence')
+
     plt.plot(points, approxs, 'r--', linewidth=5, label='Network approximation')
+
+    # additional visual elements
     plt.xlabel(xlabel, fontdict={'fontsize': 16})
     plt.ylabel(ylabel, fontdict={'fontsize': 16})
     plt.title(title, fontdict={'fontsize': 17})
-
-    # additional visual elements
-    if confidence is not None:
-        plt.fill_between(points.reshape(-1), true - confidence, true + confidence, alpha=alpha,
-                         label='Confidence')
     plt.legend(loc=loc)
     plt.grid(grid)
 
     if save:
         plt.savefig(path, dpi=300)
 
-    plt.show()
+    if show:
+        plt.show()
 
 
 def plot_2d(model, mode='imshow', fetches=None, grid=None, cmap='viridis',
