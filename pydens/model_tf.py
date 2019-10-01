@@ -311,26 +311,43 @@ class TFDeepGalerkin(TFModel):
             init_cond = kwargs.get("initial_condition")
             bound_cond = kwargs["boundary_condition"]
             domain = kwargs["domain"]
+            t0 = domain[-1][0] if isinstance(domain, list) else kwargs.get("t0", 0)
             time_mode = kwargs["time_multiplier"]
 
             # Separate variables and perturbations
             coordinates = coordinates[:n_dims]
             perturbations = coordinates[n_dims:]
 
-            lower, upper = [[bounds[i] for bounds in domain] for i in range(2)]
             n_dims_xs = n_dims if init_cond is None else n_dims - 1
             xs_spatial = coordinates[:n_dims_xs] if n_dims_xs > 0 else []
             xs_spatial_ = tf.concat(xs_spatial, axis=1) if n_dims_xs > 0 else None
             xs_spatial_es = xs_spatial + perturbations
 
             # Multiplicator for binding boundary conditions
-            binding_multiplier = 1
-            if n_dims_xs > 0:
-                lower_tf, upper_tf = [tf.constant(bounds[:n_dims_xs], shape=(1, n_dims_xs), dtype=tf.float32)
-                                      for bounds in (lower, upper)]
-                binding_multiplier *= tf.reduce_prod((xs_spatial_ - lower_tf) * (upper_tf - xs_spatial_) /
-                                                     (upper_tf - lower_tf)**2,
-                                                     axis=1, name='ansatz/xs_multiplier', keepdims=True)
+            if isinstance(domain, list):
+                # prepare and use nullifier for a box-shaped boundary
+                def _domain(*xs):
+                    result = 1
+                    for x, bounds in zip(xs, domain[:n_dims_xs]):
+                        result *= (x - bounds[0]) * (bounds[1] - x) / (bounds[1] - bounds[0])**2
+                    return result
+
+                binding_multiplier = _domain(*xs_spatial)
+
+            elif callable(domain):
+                # parse whether time-coordinate is included in nullifier
+                num_args = len(signature(domain).parameters)
+                if num_args == 0:
+                    raise ValueError("When callable, domain-arg cannot have 0 arguments.")
+                elif num_args == n_dims - 1:
+                    binding_multiplier = domain(*xs_spatial)
+                elif num_args == n_dims:
+                    binding_multiplier = domain(*coordinates)
+                    init_cond = None # initial condition not needed anymore
+                else:
+                    raise ValueError("Cannot parse the number of coordinates to be used in nullifier.")
+
+                binding_multiplier = domain(*xs_spatial)
 
             # Apply ansatz to each branch of head to obtain solution-approximation for each pde
             solution = []
@@ -341,7 +358,7 @@ class TFDeepGalerkin(TFModel):
 
                 # Ignore boundary condition as it is automatically set by initial condition
                 if init_cond is not None:
-                    shifted = coordinates[-1] - tf.constant(lower[-1], shape=(1, 1), dtype=tf.float32)
+                    shifted = coordinates[-1] - tf.constant(t0, shape=(1, 1), dtype=tf.float32)
                     time_mode = kwargs["time_multiplier"]
 
                     add_term += init_cond[i][0](*xs_spatial_es)
@@ -360,13 +377,10 @@ class TFDeepGalerkin(TFModel):
                 # Sometimes you need it
                 if kwargs.get('do_that_strange_magic'):
                     if n_dims_xs > 0:
+                        lower, upper = [[bounds[i] for bounds in domain] for i in range(2)]
                         lower_tf, upper_tf = [tf.constant(bounds[:n_dims_xs],
                                                           shape=(1, n_dims_xs), dtype=tf.float32)
                                               for bounds in (lower, upper)]
-                        binding_multiplier *= tf.reduce_prod(((xs_spatial_ - lower_tf)
-                                                              * (upper_tf - xs_spatial_)) /
-                                                             (upper_tf - lower_tf)**2,
-                                                             axis=1, name='ansatz/xs_multiplier', keepdims=True)
 
                         add_bind = ((bound_cond[i][0](coordinates[-1]) - init_cond[i][0](lower_tf)
                                      / (multiplier + 1e1))
@@ -375,6 +389,7 @@ class TFDeepGalerkin(TFModel):
 
                 result = add_term + multiplier * (inputs[i]*binding_multiplier + add_bind)
                 solution.append(result)
+
         return tf.concat(solution, axis=-1, name='ansatz/_output')
 
     @classmethod
