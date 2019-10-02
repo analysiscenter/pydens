@@ -10,6 +10,7 @@ import tensorflow as tf
 from .batchflow.models.tf import TFModel
 from .batchflow.models.tf.layers import conv_block
 from .syntax_tree import get_num_parameters
+from .tokens import add_tokens
 
 
 
@@ -166,7 +167,7 @@ class TFDeepGalerkin(TFModel):
             elif n_args == n_dims:
                 def _domain(*coordinates):
                     return domain(*coordinates)
-                self.config.update({'pde/initial_condition': None}) # initial condition not needed anymore
+                self.config.update({'pde/_time_multiplier': 1}) # multiplier in init cond not needed anymore!
             else:
                 raise ValueError("Cannot parse the number of coordinates to be used in boundary-nullifier.")
         else:
@@ -368,8 +369,9 @@ class TFDeepGalerkin(TFModel):
                     time_mode = kwargs["time_multiplier"]
 
                     add_term += init_cond[i][0](*xs_spatial_es)
-                    multiplier *= cls._make_time_multiplier(time_mode,
-                                                            '0' if len(init_cond[i]) == 1 else '00')(shifted)
+                    if kwargs.get("_time_multiplier") is None:  # apply time multiplier if haven't been applied before
+                        multiplier *= cls._make_time_multiplier(time_mode,
+                                                                '0' if len(init_cond[i]) == 1 else '00')(shifted)
 
                     # multiple initial conditions
                     if len(init_cond[i]) > 1:

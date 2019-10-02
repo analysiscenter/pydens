@@ -16,7 +16,7 @@ MATH_TOKENS = ['sin', 'cos', 'tan',
                'asin', 'acos', 'atan',
                'sinh', 'cosh', 'tanh',
                'asinh', 'acosh', 'atanh',
-               'exp', 'log', 'pow',
+               'exp', 'sigmoid', 'log', 'pow',
                'sqrt', 'sign',
                ]
 
