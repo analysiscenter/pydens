@@ -136,15 +136,44 @@ class TFDeepGalerkin(TFModel):
         self.config.update({'initial_block/inputs': 'points',
                             'inputs': dict(points={'shape': (n_dims + n_parameters, )})})
 
-        # Default values for domain
-        if pde.get('domain') is None:
-            self.config.update({'pde/domain': [[0, 1]] * n_dims})
-
         # Make sure that initial conditions are callable
         init_conds = pde.get('initial_condition', None)
         if init_conds is not None:
             init_conds = self._make_nested_list(init_conds, n_funs, 'initial')
             self.config.update({'pde/initial_condition': init_conds})
+
+        # Set the default value for domain and make sure it is callable
+        domain = pde.get('domain', [[0, 1]] * n_dims)
+        t0 = domain[-1][0] if isinstance(domain, list) else pde.get("t0", 0)
+        n_dims_xs = n_dims if init_conds is None else n_dims - 1
+        if isinstance(domain, list):
+            # prepare and use nullifier for a box-shaped boundary
+            def _domain(*coordinates):
+                xs = coordinates[:n_dims_xs]
+                result = 1
+                for x, bounds in zip(xs, domain[:n_dims_xs]):
+                    result *= (x - bounds[0]) * (bounds[1] - x) / (bounds[1] - bounds[0])**2
+                return result
+
+        elif callable(domain):
+            # parse whether time-coordinate is included in nullifier
+            n_args = len(signature(domain).parameters)
+            if n_args == 0:
+                raise ValueError("When callable, domain-arg cannot have 0 arguments.")
+            elif n_args == n_dims - 1:
+                def _domain(*coordinates):
+                    return domain(*coordinates[:-1])
+            elif n_args == n_dims:
+                def _domain(*coordinates):
+                    return domain(*coordinates)
+                self.config.update({'pde/initial_condition': None}) # initial condition not needed anymore
+            else:
+                raise ValueError("Cannot parse the number of coordinates to be used in boundary-nullifier.")
+        else:
+            raise ValueError("Domain is of type " + str(type) + ". It should be either list or callable!")
+
+        self.config.update({'pde/domain': _domain})
+        self.config.update({'pde/t0': t0})
 
         # make sure that boundary condition is callable
         bound_cond = pde.get('boundary_condition', [0.0]*n_funs)
@@ -311,7 +340,7 @@ class TFDeepGalerkin(TFModel):
             init_cond = kwargs.get("initial_condition")
             bound_cond = kwargs["boundary_condition"]
             domain = kwargs["domain"]
-            t0 = domain[-1][0] if isinstance(domain, list) else kwargs.get("t0", 0)
+            t0 = kwargs["t0"]
             time_mode = kwargs["time_multiplier"]
 
             # Separate variables and perturbations
@@ -323,31 +352,8 @@ class TFDeepGalerkin(TFModel):
             xs_spatial_ = tf.concat(xs_spatial, axis=1) if n_dims_xs > 0 else None
             xs_spatial_es = xs_spatial + perturbations
 
-            # Multiplicator for binding boundary conditions
-            if isinstance(domain, list):
-                # prepare and use nullifier for a box-shaped boundary
-                def _domain(*xs):
-                    result = 1
-                    for x, bounds in zip(xs, domain[:n_dims_xs]):
-                        result *= (x - bounds[0]) * (bounds[1] - x) / (bounds[1] - bounds[0])**2
-                    return result
-
-                binding_multiplier = _domain(*xs_spatial)
-
-            elif callable(domain):
-                # parse whether time-coordinate is included in nullifier
-                num_args = len(signature(domain).parameters)
-                if num_args == 0:
-                    raise ValueError("When callable, domain-arg cannot have 0 arguments.")
-                elif num_args == n_dims - 1:
-                    binding_multiplier = domain(*xs_spatial)
-                elif num_args == n_dims:
-                    binding_multiplier = domain(*coordinates)
-                    init_cond = None # initial condition not needed anymore
-                else:
-                    raise ValueError("Cannot parse the number of coordinates to be used in nullifier.")
-
-                binding_multiplier = domain(*xs_spatial)
+            # Compute multiplier for binding boundary conditions
+            binding_multiplier = domain(*coordinates)
 
             # Apply ansatz to each branch of head to obtain solution-approximation for each pde
             solution = []
