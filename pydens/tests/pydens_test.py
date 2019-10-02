@@ -1,4 +1,5 @@
 """ Tests for PyDEns-module. """
+import os
 import warnings
 from glob import glob
 
@@ -7,7 +8,7 @@ import pytest
 BAD_PREFIXES = ['get_ipython', 'plt', 'axes', 'fig.', 'fig,',
                 'ipyw', 'interact(']
 
-NOTEBOOKS = glob('./../../tutorials/*.ipynb')
+NOTEBOOKS = glob(os.path.join(os.path.dirname(__file__), '../../tutorials/*.ipynb'))
 
 @pytest.mark.slow
 @pytest.mark.parametrize('path', NOTEBOOKS)
