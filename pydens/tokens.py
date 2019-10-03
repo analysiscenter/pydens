@@ -95,7 +95,7 @@ def add_tokens(var_dict=None, postfix='__', module='tf', names=None, namespaces=
     """
     names = names or (MATH_TOKENS + CUSTOM_TOKENS)
 
-    if not var_dict:
+    if var_dict is None:
         frame = inspect.currentframe()
         try:
             var_dict = frame.f_back.f_locals

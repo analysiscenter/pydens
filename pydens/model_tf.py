@@ -422,37 +422,39 @@ class TFDeepGalerkin(TFModel):
         --------
         Form an `solution`-tensor binding the initial value (at $t=0$) of the `network`-tensor to $sin(2 \pi x)$::
 
-            solution = network * TFDeep._make_time_multiplier('sigmoid', '0')(t) + tf.sin(2 * np.pi * x)
+            solution = network * TFDeepGalerkin._make_time_multiplier('sigmoid', '0')(t) + tf.sin(2 * np.pi * x)
 
         Bind the initial value to $sin(2 \pi x)$ and the initial rate to $cos(2 \pi x)$::
 
-            solution = (network * TFDeep._make_time_multiplier('polynomial', '00')(t) +
-                            tf.sin(2 * np.pi * x) +
-                            tf.cos(2 * np.pi * x) * TFDeep._make_time_multiplier('polynomial', '01')(t))
+            solution = (network * TFDeepGalerkin._make_time_multiplier('polynomial', '00')(t) +
+                        tf.sin(2 * np.pi * x) +
+                        tf.cos(2 * np.pi * x) * TFDeepGalerkin._make_time_multiplier('polynomial', '01')(t))
         """
+        # import some tokens
+        names, _tokens = ['exp', 'sigmoid', 'V'], {}
+        add_tokens(_tokens, names=names)
+        exp, sigmoid, V = [_tokens.get(name) for name in names]
+
         if family == "sigmoid":
             if order == '0':
                 def _callable(shifted_time):
-                    log_scale = tf.Variable(0.0, name='time_scale')
-                    return tf.sigmoid(shifted_time * tf.exp(log_scale)) - 0.5
+                    return sigmoid(shifted_time * exp(V(0.0, 'time_scale'))) - 0.5
             elif order == '00':
                 def _callable(shifted_time):
-                    log_scale = tf.Variable(0.0, name='time_scale')
-                    scale = tf.exp(log_scale)
-                    return tf.sigmoid(shifted_time * scale) - tf.sigmoid(shifted_time) * scale - 1 / 2 + scale / 2
+                    scale = exp(V(0.0, 'time_scale'))
+                    return sigmoid(shifted_time * scale) - sigmoid(shifted_time) * scale - 1 / 2 + scale / 2
             elif order == '01':
                 def _callable(shifted_time):
-                    log_scale = tf.Variable(0.0, name='time_scale')
-                    scale = tf.exp(log_scale)
-                    return 4 * tf.sigmoid(shifted_time * scale) / scale - 2 / scale
+                    scale = exp(V(0.0, 'time_scale'))
+                    return 4 * sigmoid(shifted_time * scale) / scale - 2 / scale
             else:
                 raise ValueError("Order " + str(order) + " is not supported.")
 
         elif family == "polynomial":
             if order == '0':
                 def _callable(shifted_time):
-                    log_scale = tf.Variable(0.0, name='time_scale')
-                    return shifted_time * tf.exp(log_scale)
+                    log_scale = V(0.0, 'time_scale')
+                    return shifted_time * exp(log_scale)
             elif order == '00':
                 def _callable(shifted_time):
                     return shifted_time ** 2 / 2
