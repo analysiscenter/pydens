@@ -371,12 +371,14 @@ class TFDeepGalerkin(TFModel):
                     add_term += init_cond[i][0](*xs_spatial_es)
                     if kwargs.get("_time_multiplier") is None:  # apply time multiplier if haven't been applied before
                         multiplier *= cls._make_time_multiplier(time_mode,
-                                                                '0' if len(init_cond[i]) == 1 else '00')(shifted)
+                                                                '0' if len(init_cond[i]) == 1 else '00',
+                                                                'time_scale_' + str(i))(shifted)
 
                     # multiple initial conditions
                     if len(init_cond[i]) > 1:
                         add_term += (init_cond[i][1](*xs_spatial_es)
-                                     * cls._make_time_multiplier(time_mode, '01')(shifted))
+                                     * cls._make_time_multiplier(time_mode, '01',
+                                                                 'time_scale_d_' + str(i))(shifted))
 
                 # If there are no initial conditions, boundary conditions are used (default value is 0)
                 else:
@@ -401,7 +403,7 @@ class TFDeepGalerkin(TFModel):
         return tf.concat(solution, axis=-1, name='ansatz/_output')
 
     @classmethod
-    def _make_time_multiplier(cls, family, order=None):
+    def _make_time_multiplier(cls, family, order=None, variable_name='time_scale'):
         r""" Produce time multiplier: a callable, applied to an arbitrary function to bind its value
         and, possibly, first order derivataive w.r.t. to time at $t=0$.
 
@@ -413,6 +415,8 @@ class TFDeepGalerkin(TFModel):
             sets the properties of the multiplier, can be either `0` or `00` or `01`. '0'
             fixes the value of multiplier as $0$ at $t=0$, while '00' sets both value and derivative to $0$.
             In the same manner, '01' sets the value at $t=0$ to $0$ and the derivative to $1$.
+        variable_name : str
+            name of the variable used in the multiplier.
 
         Returns
         -------
@@ -438,14 +442,14 @@ class TFDeepGalerkin(TFModel):
         if family == "sigmoid":
             if order == '0':
                 def _callable(shifted_time):
-                    return sigmoid(shifted_time * exp(V(0.0, 'time_scale'))) - 0.5
+                    return sigmoid(shifted_time * exp(V(0.0, variable_name))) - 0.5
             elif order == '00':
                 def _callable(shifted_time):
-                    scale = exp(V(0.0, 'time_scale'))
+                    scale = exp(V(0.0, variable_name))
                     return sigmoid(shifted_time * scale) - sigmoid(shifted_time) * scale - 1 / 2 + scale / 2
             elif order == '01':
                 def _callable(shifted_time):
-                    scale = exp(V(0.0, 'time_scale'))
+                    scale = exp(V(0.0, variable_name))
                     return 4 * sigmoid(shifted_time * scale) / scale - 2 / scale
             else:
                 raise ValueError("Order " + str(order) + " is not supported.")
@@ -453,7 +457,7 @@ class TFDeepGalerkin(TFModel):
         elif family == "polynomial":
             if order == '0':
                 def _callable(shifted_time):
-                    log_scale = V(0.0, 'time_scale')
+                    log_scale = V(0.0, variable_name)
                     return shifted_time * exp(log_scale)
             elif order == '00':
                 def _callable(shifted_time):
