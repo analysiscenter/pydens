@@ -130,7 +130,7 @@ def plot_sections_2d(model, timestamps=(0, 0.2, 0.4, 0.6, 0.7, 0.9), grid_size=(
     fig.subplots_adjust(top=0.82)
 
     if save_to is not None:
-        plt.savefig(path, dpi=300)
+        plt.savefig(save_to, dpi=300)
     plt.show()
 
 
