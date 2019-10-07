@@ -187,6 +187,12 @@ class TFDeepGalerkin(TFModel):
 
         config = self._make_ops(config)
         config['ansatz/coordinates'] = self.get_from_attr('coordinates')
+
+        # make sure ansatz-transforms is a list if present
+        ansatz_transforms = self.config.get('ansatz/transforms')
+        if ansatz_transforms is not None:
+            config['ansatz/transforms'] = self._make_nested_list(ansatz_transforms, n_funs, 'ansatz')
+
         return config
 
     def _make_nested_list(self, list_cond, n_funs, name=None):
@@ -334,71 +340,82 @@ class TFDeepGalerkin(TFModel):
         Creates a tf.Tensor `solution` - the final output of the model.
         """
         if kwargs["bind_bc_ic"]:
-            # Retrieving variables
+            # Retrieving dimensionality of the problem
             n_dims = kwargs['n_dims']
             n_funs = kwargs['n_funs']
-
-            init_cond = kwargs.get("initial_condition")
-            bound_cond = kwargs["boundary_condition"]
-            domain = kwargs["domain"]
-            t0 = kwargs["t0"]
-            time_mode = kwargs["time_multiplier"]
 
             # Separate variables and perturbations
             coordinates = coordinates[:n_dims]
             perturbations = coordinates[n_dims:]
+            transforms = kwargs.get('transforms')
 
-            n_dims_xs = n_dims if init_cond is None else n_dims - 1
-            xs_spatial = coordinates[:n_dims_xs] if n_dims_xs > 0 else []
-            xs_spatial_ = tf.concat(xs_spatial, axis=1) if n_dims_xs > 0 else None
-            xs_spatial_es = xs_spatial + perturbations
-
-            # Compute multiplier for binding boundary conditions
-            binding_multiplier = domain(*coordinates)
-
-            # Apply ansatz to each branch of head to obtain solution-approximation for each pde
+            # Apply ansatz-transformation to obtain a vector of solution approximations
             solution = []
-            for i in range(n_funs):
-                add_term = 0
-                multiplier = 1
-                add_bind = 0
+            if transforms is None:
+                # Form an ansatz using supplied boundary and initial conditions
+                # Boundary conditions and domain
+                init_cond = kwargs.get("initial_condition")
+                bound_cond = kwargs["boundary_condition"]
+                domain = kwargs["domain"]
+                t0 = kwargs["t0"]
+                time_mode = kwargs["time_multiplier"]
 
-                # Ignore boundary condition as it is automatically set by initial condition
-                if init_cond is not None:
-                    shifted = coordinates[-1] - tf.constant(t0, shape=(1, 1), dtype=tf.float32)
-                    time_mode = kwargs["time_multiplier"]
+                n_dims_xs = n_dims if init_cond is None else n_dims - 1
+                xs_spatial = coordinates[:n_dims_xs] if n_dims_xs > 0 else []
+                xs_spatial_ = tf.concat(xs_spatial, axis=1) if n_dims_xs > 0 else None
+                xs_spatial_es = xs_spatial + perturbations
 
-                    add_term += init_cond[i][0](*xs_spatial_es)
-                    if kwargs.get("_time_multiplier") is None:  # apply time multiplier if haven't been applied before
-                        multiplier *= cls._make_time_multiplier(time_mode,
-                                                                '0' if len(init_cond[i]) == 1 else '00',
-                                                                'time_scale_' + str(i))(shifted)
+                # Compute multiplier for binding boundary conditions
+                binding_multiplier = domain(*coordinates)
 
-                    # multiple initial conditions
-                    if len(init_cond[i]) > 1:
-                        add_term += (init_cond[i][1](*xs_spatial_es)
-                                     * cls._make_time_multiplier(time_mode, '01',
-                                                                 'time_scale_d_' + str(i))(shifted))
+                # Apply ansatz to each branch of head to obtain solution-approximation for each pde
+                for i in range(n_funs):
+                    add_term = 0
+                    multiplier = 1
+                    add_bind = 0
 
-                # If there are no initial conditions, boundary conditions are used (default value is 0)
-                else:
-                    add_term += bound_cond[i][0](*xs_spatial_es)
+                    # Ignore boundary condition as it is automatically set by initial condition
+                    if init_cond is not None:
+                        shifted = coordinates[-1] - tf.constant(t0, shape=(1, 1), dtype=tf.float32)
+                        time_mode = kwargs["time_multiplier"]
 
-                # Sometimes you need it
-                if kwargs.get('do_that_strange_magic'):
-                    if n_dims_xs > 0:
-                        lower, upper = [[bounds[i] for bounds in domain] for i in range(2)]
-                        lower_tf, upper_tf = [tf.constant(bounds[:n_dims_xs],
-                                                          shape=(1, n_dims_xs), dtype=tf.float32)
-                                              for bounds in (lower, upper)]
+                        add_term += init_cond[i][0](*xs_spatial_es)
+                        if kwargs.get("_time_multiplier") is None:  # apply time multiplier if haven't been applied before
+                            multiplier *= cls._make_time_multiplier(time_mode,
+                                                                    '0' if len(init_cond[i]) == 1 else '00',
+                                                                    'time_scale_' + str(i))(shifted)
 
-                        add_bind = ((bound_cond[i][0](coordinates[-1]) - init_cond[i][0](lower_tf)
-                                     / (multiplier + 1e1))
-                                    * ((upper_tf - xs_spatial) / (upper_tf - lower_tf)))
-                        add_bind = tf.reshape(add_bind, shape=(-1, 1))
+                        # multiple initial conditions
+                        if len(init_cond[i]) > 1:
+                            add_term += (init_cond[i][1](*xs_spatial_es)
+                                         * cls._make_time_multiplier(time_mode, '01',
+                                                                     'time_scale_d_' + str(i))(shifted))
 
-                result = add_term + multiplier * (inputs[i]*binding_multiplier + add_bind)
-                solution.append(result)
+                    # If there are no initial conditions, boundary conditions are used (default value is 0)
+                    else:
+                        add_term += bound_cond[i][0](*xs_spatial_es)
+
+                    # Sometimes you need it
+                    if kwargs.get('do_that_strange_magic'):
+                        if n_dims_xs > 0:
+                            lower, upper = [[bounds[i] for bounds in domain] for i in range(2)]
+                            lower_tf, upper_tf = [tf.constant(bounds[:n_dims_xs],
+                                                              shape=(1, n_dims_xs), dtype=tf.float32)
+                                                  for bounds in (lower, upper)]
+
+                            add_bind = ((bound_cond[i][0](coordinates[-1]) - init_cond[i][0](lower_tf)
+                                         / (multiplier + 1e1))
+                                        * ((upper_tf - xs_spatial) / (upper_tf - lower_tf)))
+                            add_bind = tf.reshape(add_bind, shape=(-1, 1))
+
+                    result = add_term + multiplier * (inputs[i]*binding_multiplier + add_bind)
+                    solution.append(result)
+
+            else:
+                # Form an ansatz using supplied transforms
+                for i in range(n_funs):
+                    result = transforms[i][0](inputs[i], *coordinates)
+                    solution.append(result)
 
         return tf.concat(solution, axis=-1, name='ansatz/_output')
 
