@@ -91,13 +91,13 @@ class TFLetters(Letters):
     def div(self, *args, **kwargs):
         """ Divergence of a vector field.
         """
-        _ = kwargs
+        length = kwargs.get('length', -1)
 
         # fetch coordinates
         coordinates = self.fetch_coordinates_from_graph()
 
         result = 0
-        for func, coord in zip(args[0], coordinates):
+        for func, coord in zip(args[0][:length], coordinates[:length]):
             result += tf.gradients(func, coord)[0]
 
         return result
