@@ -8,4 +8,4 @@ from .model_tf import TFDeepGalerkin
 from .wrapper import Solver
 from .batchflow.sampler import *
 
-__version__ = '0.1.0'
+__version__ = '0.1.1'
