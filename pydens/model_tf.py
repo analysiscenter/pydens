@@ -94,7 +94,7 @@ class TFDeepGalerkin(TFModel):
         config['loss'] = 'mse'
         return config
 
-    def build_config(self, names=None):
+    def build_config(self, names=None):     # pylint: disable=too-many-statements
         """ Overloads :meth:`.TFModel.build_config`.
         PDE-problem is fetched from 'pde' key in 'self.config', and then
         is passed to 'common' so that all of the subsequent blocks get it as 'kwargs'.
@@ -145,7 +145,7 @@ class TFDeepGalerkin(TFModel):
 
         # Set the default value for domain and make sure it is callable
         domain = pde.get('domain', [[0, 1]] * n_dims)
-        t0 = domain[-1][0] if isinstance(domain, list) else pde.get("t0", 0)
+        t_start = domain[-1][0] if isinstance(domain, list) else pde.get("t0", 0)
         n_dims_xs = n_dims if init_conds is None else n_dims - 1
         if isinstance(domain, list):
             # prepare and use nullifier for a box-shaped boundary
@@ -174,7 +174,7 @@ class TFDeepGalerkin(TFModel):
             raise ValueError("Domain is of type " + str(type) + ". It should be either list or callable!")
 
         self.config.update({'pde/domain': _domain})
-        self.config.update({'pde/t0': t0})
+        self.config.update({'pde/t0': t_start})
 
         # make sure that boundary condition is callable
         bound_cond = pde.get('boundary_condition', [0.0]*n_funs)
@@ -357,7 +357,7 @@ class TFDeepGalerkin(TFModel):
                 init_cond = kwargs.get("initial_condition")
                 bound_cond = kwargs["boundary_condition"]
                 domain = kwargs["domain"]
-                t0 = kwargs["t0"]
+                t_start = kwargs["t0"]
                 time_mode = kwargs["time_multiplier"]
 
                 n_dims_xs = n_dims if init_cond is None else n_dims - 1
@@ -376,11 +376,11 @@ class TFDeepGalerkin(TFModel):
 
                     # Ignore boundary condition as it is automatically set by initial condition
                     if init_cond is not None:
-                        shifted = coordinates[-1] - tf.constant(t0, shape=(1, 1), dtype=tf.float32)
+                        shifted = coordinates[-1] - tf.constant(t_start, shape=(1, 1), dtype=tf.float32)
                         time_mode = kwargs["time_multiplier"]
 
                         add_term += init_cond[i][0](*xs_spatial_es)
-                        if kwargs.get("_time_multiplier") is None:  # apply time multiplier if haven't been applied before
+                        if kwargs.get("_time_multiplier") is None:  # apply time multiplier if not applied before
                             multiplier *= cls._make_time_multiplier(time_mode,
                                                                     '0' if len(init_cond[i]) == 1 else '00',
                                                                     'time_scale_' + str(i))(shifted)
@@ -405,7 +405,7 @@ class TFDeepGalerkin(TFModel):
 
                             add_bind = ((bound_cond[i][0](coordinates[-1]) - init_cond[i][0](lower_tf)
                                          / (multiplier + 1e1))
-                                        * ((upper_tf - xs_spatial) / (upper_tf - lower_tf)))
+                                        * ((upper_tf - xs_spatial_) / (upper_tf - lower_tf)))
                             add_bind = tf.reshape(add_bind, shape=(-1, 1))
 
                     result = add_term + multiplier * (inputs[i]*binding_multiplier + add_bind)
