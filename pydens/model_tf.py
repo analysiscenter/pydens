@@ -120,8 +120,8 @@ class TFDeepGalerkin(TFModel):
         # Convert each expression to track to list
         track = pde.get('track')
         if track:
-            track = {value if isinstance(value, (tuple, list)) else [value]
-                     for value in track.values()}
+            track = {name : (value if isinstance(value, (tuple, list)) else [value])
+                     for name, value in track.items()}
             pde.update({'track': track})
 
         # Make sure that PDE dimensionality is consistent
@@ -221,8 +221,8 @@ class TFDeepGalerkin(TFModel):
     def _make_ops(self, config):
         """ Stores necessary operations in 'config'. """
         # retrieving variables
-        ops = config.get('output')
-        track = config.get('track')
+        ops = config.get('output', {})
+        track = config.get('track', {})
         coordinates = self.get_from_attr('coordinates')
 
         # ensuring that 'ops' is of the needed type
@@ -241,8 +241,10 @@ class TFDeepGalerkin(TFModel):
                                                            name='predictions', pde=config['common'])
         # forms for tracking
         if track is not None:
-            for op in track.keys():
-                _compute_op = self._make_form_calculator(track[op], coordinates, name=op, pde=config['common'])
+            ops = {**ops, **track}
+        if ops is not None:
+            for name, op in ops.items():
+                _compute_op = self._make_form_calculator(op, coordinates, name=name, pde=config['common'])
                 _ops[prefix].append(_compute_op)
 
         config['output'] = _ops
