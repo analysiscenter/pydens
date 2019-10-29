@@ -14,9 +14,11 @@ def plot_loss(loss, color='powderblue'):
     plt.show()
 
 
-def plot_pair_1d(model, solution=None, fetches='solution', points=None, plot_coord=None, xlabel=r'$t$',
-                 ylabel=r'$\hat{u} | u$', confidence=None, alpha=0.4, title='Solution against approximation',
-                 loc=1, grid=True, show=True, save_to=None):
+def plot_pair_1d(model, solution=None, fetches='solution', points=None, plot_coord=None,
+                 xlabel=r'$t$', ylabel=r'$\hat{u} | u$',
+                 confidence=None, alpha=0.4, title='Solution against approximation',
+                 loc='best', grid=True,
+                 show=True, save_to=None):
     r""" Visualize solution-approximation to a 1d problem (e.g., ode in $\mathcal{R}$)
     along with true solution.
     """
@@ -47,8 +49,9 @@ def plot_pair_1d(model, solution=None, fetches='solution', points=None, plot_coo
         plt.show()
 
 
-def plot_2d(model, mode='imshow', fetches=None, grid=None, x_size=None, y_size=None,
-            cmap='viridis', title=r'Elliptic PDE in $\mathcal{R}^2$: approximate solution',
+def plot_2d(model, mode='imshow', fetches=None,
+            grid=None, x_size=None, y_size=None,
+            cmap='viridis', title=r'PDE in $\mathcal{R}^2$: approximate solution',
             xlim=(0, 1), ylim=(0, 1), num_points=None, save_to=None):
     r""" Visualize solution-approximation to a 2d problem (e.g., poisson problem in $\mathcal{R}^2$-square).
     """
@@ -106,9 +109,9 @@ def cart_prod(*arrs):
     return np.stack(grids, axis=-1).reshape(-1, len(arrs))
 
 
-def plot_sections_2d(model, timestamps=(0, 0.2, 0.4, 0.6, 0.7, 0.9), grid_size=(2, 3), points=None,
-                     fetches=None, xlim=(0, 1), ylim=(0, 0.3), title=r'Heat PDE in $\mathcal{R}$: $\hat{u}$',
-                     save_to=None):
+def plot_sections_2d(model, timestamps=(0, 0.2, 0.4, 0.6, 0.7, 0.9), grid_size=(2, 3),
+                     points=None, fetches=None, xlim=(0, 1), ylim=(0, 0.3),
+                     title=r'PDE in $\mathcal{R}$: $\hat{u}$', save_to=None):
     r""" Plot 1d-time-sections of approximate solution to 2d-evolution equation, that is, with one
     spatial coordinate.
     """
@@ -136,8 +139,7 @@ def plot_sections_2d(model, timestamps=(0, 0.2, 0.4, 0.6, 0.7, 0.9), grid_size=(
 
 def plot_sections_3d(model, timestamps=(0, 0.2, 0.4, 0.6, 0.7, 0.9), grid_size=(2, 3), mode='3d_view',
                      fetches=None, xlim=(0, 1), ylim=(0, 1), zlim=(-0.2, 0.2), num_points=None,
-                     title=r'Heat PDE in $\mathcal{R}^2$: $\hat{u}$', cmap='viridis',
-                     save_to=None):
+                     title=r'PDE in $\mathcal{R}^2$: $\hat{u}$', cmap='viridis', save_to=None):
     """ Plot 2d-sections of approximate solution to 3d-evolution equation, that is, with two
     spatial coordinates.
     """
