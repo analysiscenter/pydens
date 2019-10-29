@@ -33,13 +33,15 @@ class TFDeepGalerkin(TFModel):
 
     pde : dict
         dictionary of parameters of PDE. Must contain keys
-        - form : callable
+        - form : list of callable
             defines diferential form in lhs of the PDE. Composed from predefined tokens including
             differential operator `D(u, x)` and unary operations like `sin` and `cos`. Can also
-            include coefficients R(e) to make the whole equation a parametric family of equations
-            rather than a simple PDE.
-        - domain : list
-            defines the rectangular domain of the equation as a sequence of coordinate-wise bounds.
+            include coefficients P(e) to make the whole equation a parametric family of equations
+            rather than a simple PDE; or variable coefficients V(0.0, 'var') to add trainable parts
+            into the equation.
+        - domain : list or callable
+            can be either 1) rectangular domain of the problem as a sequence of coordinate-wise bounds
+                       or 2) callable nullifying the domain boundary
         - bind_bc_ic : bool
             If True, modifies the network-output to bind boundary and initial conditions.
         - initial_condition : callable or const or None or list
@@ -57,7 +59,12 @@ class TFDeepGalerkin(TFModel):
 
     track : dict
         allows for logging of differentials of the solution-approximator. Can be used for
-        keeping track on the model-training process.
+        keeping track of the model-training process.
+
+    ansatz : dict
+        - transforms : list of callable
+            when supplied, represents the transformation of the neural network-output into the approximate
+            solution of the problem. In all, should be a function of network-output and coordinates.
 
     Examples
     --------
@@ -356,11 +363,8 @@ class TFDeepGalerkin(TFModel):
             if transforms is None:
                 # Form an ansatz using supplied boundary and initial conditions
                 # Boundary conditions and domain
-                init_cond = kwargs.get("initial_condition")
-                bound_cond = kwargs["boundary_condition"]
-                domain = kwargs["domain"]
-                t_start = kwargs["t0"]
-                time_mode = kwargs["time_multiplier"]
+                variables = ["initial_condition", "boundary_condition", "domain", "t0", "time_multiplier"]
+                init_cond, bound_cond, domain, t_start, time_mode = cls.get(variables=variables, config=kwargs)
 
                 n_dims_xs = n_dims if init_cond is None else n_dims - 1
                 xs_spatial = coordinates[:n_dims_xs] if n_dims_xs > 0 else []
