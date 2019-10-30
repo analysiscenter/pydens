@@ -16,7 +16,7 @@ MATH_TOKENS = ['sin', 'cos', 'tan',
                'asin', 'acos', 'atan',
                'sinh', 'cosh', 'tanh',
                'asinh', 'acosh', 'atanh',
-               'exp', 'log', 'pow',
+               'exp', 'sigmoid', 'log', 'pow',
                'sqrt', 'sign',
                ]
 
@@ -95,7 +95,7 @@ def add_tokens(var_dict=None, postfix='__', module='tf', names=None, namespaces=
     """
     names = names or (MATH_TOKENS + CUSTOM_TOKENS)
 
-    if not var_dict:
+    if var_dict is None:
         frame = inspect.currentframe()
         try:
             var_dict = frame.f_back.f_locals

@@ -1,0 +1,43 @@
+name: status
+
+on: [push]
+
+jobs:
+
+  lint-test:
+
+    runs-on: ubuntu-latest
+
+    container:
+      image: analysiscenter1/ds-py3:cpu
+
+    steps:
+    - uses: actions/checkout@v1
+
+    - name: Update pip
+      run: pip3 install -U pip
+
+    - name: Update pylint
+      run: pip3 install -U pylint
+
+    - name: Install requirements
+      run: pip3 install -r requirements.txt
+
+    - name: Check pylint
+      run: pylint -rn --rcfile pylintrc pydens
+
+    - name: Slack notification
+      if: success()
+      env:
+        SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      uses: pullreminders/slack-action@master
+      with:
+        args: '{\"channel\": \"#commits\", \"attachments\": [{\"color\": \"good\", \"text\": \"<${{ github.event.commits[0].url }}|${{ github.repository }}: *${{ github.event.commits[0].message }}*> by ${{ github.event.commits[0].author.name }}\n<${{ github.event.commits[0].url }}/checks|Workflow ${{ github.workflow }}>: `${{ job.status }}`\"}]}'
+
+    - name: Slack notification
+      if: failure()
+      env:
+        SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      uses: pullreminders/slack-action@master
+      with:
+        args: '{\"channel\": \"#commits\", \"attachments\": [{\"color\": \"danger\", \"text\": \"<${{ github.event.commits[0].url }}|${{ github.repository }}: *${{ github.event.commits[0].message }}*> by ${{ github.event.commits[0].author.name }}\n<${{ github.event.commits[0].url }}/checks|Workflow ${{ github.workflow }}>: `${{ job.status }}`\"}]}'

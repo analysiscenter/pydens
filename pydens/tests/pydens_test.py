@@ -24,7 +24,7 @@ def test_run_tutorial(path):
     # pylint: disable=exec-used
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        from nbconvert import PythonExporter
+        from nbconvert import PythonExporter        # pylint: disable=import-outside-toplevel
         code, _ = PythonExporter().from_filename(path)
 
         code_ = []

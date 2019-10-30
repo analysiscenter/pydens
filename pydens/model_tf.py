@@ -10,6 +10,7 @@ import tensorflow as tf
 from .batchflow.models.tf import TFModel
 from .batchflow.models.tf.layers import conv_block
 from .syntax_tree import get_num_parameters
+from .tokens import add_tokens
 
 
 
@@ -32,13 +33,15 @@ class TFDeepGalerkin(TFModel):
 
     pde : dict
         dictionary of parameters of PDE. Must contain keys
-        - form : callable
+        - form : list of callable
             defines diferential form in lhs of the PDE. Composed from predefined tokens including
             differential operator `D(u, x)` and unary operations like `sin` and `cos`. Can also
-            include coefficients R(e) to make the whole equation a parametric family of equations
-            rather than a simple PDE.
-        - domain : list
-            defines the rectangular domain of the equation as a sequence of coordinate-wise bounds.
+            include coefficients P(e) to make the whole equation a parametric family of equations
+            rather than a simple PDE; or variable coefficients V(0.0, 'var') to add trainable parts
+            into the equation.
+        - domain : list or callable
+            can be either 1) rectangular domain of the problem as a sequence of coordinate-wise bounds
+                       or 2) callable nullifying the domain boundary
         - bind_bc_ic : bool
             If True, modifies the network-output to bind boundary and initial conditions.
         - initial_condition : callable or const or None or list
@@ -56,7 +59,12 @@ class TFDeepGalerkin(TFModel):
 
     track : dict
         allows for logging of differentials of the solution-approximator. Can be used for
-        keeping track on the model-training process.
+        keeping track of the model-training process.
+
+    ansatz : dict
+        - transforms : list of callable
+            when supplied, represents the transformation of the neural network-output into the approximate
+            solution of the problem. In all, should be a function of network-output and coordinates.
 
     Examples
     --------
@@ -93,7 +101,7 @@ class TFDeepGalerkin(TFModel):
         config['loss'] = 'mse'
         return config
 
-    def build_config(self, names=None):
+    def build_config(self, names=None):     # pylint: disable=too-many-statements
         """ Overloads :meth:`.TFModel.build_config`.
         PDE-problem is fetched from 'pde' key in 'self.config', and then
         is passed to 'common' so that all of the subsequent blocks get it as 'kwargs'.
@@ -119,8 +127,8 @@ class TFDeepGalerkin(TFModel):
         # Convert each expression to track to list
         track = pde.get('track')
         if track:
-            track = {value if isinstance(value, (tuple, list)) else [value]
-                     for value in track.values()}
+            track = {name : (value if isinstance(value, (tuple, list)) else [value])
+                     for name, value in track.items()}
             pde.update({'track': track})
 
         # Make sure that PDE dimensionality is consistent
@@ -136,15 +144,44 @@ class TFDeepGalerkin(TFModel):
         self.config.update({'initial_block/inputs': 'points',
                             'inputs': dict(points={'shape': (n_dims + n_parameters, )})})
 
-        # Default values for domain
-        if pde.get('domain') is None:
-            self.config.update({'pde/domain': [[0, 1]] * n_dims})
-
         # Make sure that initial conditions are callable
         init_conds = pde.get('initial_condition', None)
         if init_conds is not None:
             init_conds = self._make_nested_list(init_conds, n_funs, 'initial')
             self.config.update({'pde/initial_condition': init_conds})
+
+        # Set the default value for domain and make sure it is callable
+        domain = pde.get('domain', [[0, 1]] * n_dims)
+        t_start = domain[-1][0] if isinstance(domain, list) else pde.get("t0", 0)
+        n_dims_xs = n_dims if init_conds is None else n_dims - 1
+        if isinstance(domain, list):
+            # prepare and use nullifier for a box-shaped boundary
+            def _domain(*coordinates):
+                xs = coordinates[:n_dims_xs]
+                result = 1
+                for x, bounds in zip(xs, domain[:n_dims_xs]):
+                    result *= (x - bounds[0]) * (bounds[1] - x) / (bounds[1] - bounds[0])**2
+                return result
+
+        elif callable(domain):
+            # parse whether time-coordinate is included in nullifier
+            n_args = len(signature(domain).parameters)
+            if n_args == 0:
+                raise ValueError("When callable, domain-arg cannot have 0 arguments.")
+            if n_args == n_dims - 1:
+                def _domain(*coordinates):
+                    return domain(*coordinates[:-1])
+            elif n_args == n_dims:
+                def _domain(*coordinates):
+                    return domain(*coordinates)
+                self.config.update({'pde/_time_multiplier': 1}) # multiplier in init cond not needed anymore!
+            else:
+                raise ValueError("Cannot parse the number of coordinates to be used in boundary-nullifier.")
+        else:
+            raise ValueError("Domain is of type " + str(type) + ". It should be either list or callable!")
+
+        self.config.update({'pde/domain': _domain})
+        self.config.update({'pde/t0': t_start})
 
         # make sure that boundary condition is callable
         bound_cond = pde.get('boundary_condition', [0.0]*n_funs)
@@ -157,6 +194,12 @@ class TFDeepGalerkin(TFModel):
 
         config = self._make_ops(config)
         config['ansatz/coordinates'] = self.get_from_attr('coordinates')
+
+        # make sure ansatz-transforms is a list if present
+        ansatz_transforms = self.config.get('ansatz/transforms')
+        if ansatz_transforms is not None:
+            config['ansatz/transforms'] = self._make_nested_list(ansatz_transforms, n_funs, 'ansatz')
+
         return config
 
     def _make_nested_list(self, list_cond, n_funs, name=None):
@@ -185,8 +228,8 @@ class TFDeepGalerkin(TFModel):
     def _make_ops(self, config):
         """ Stores necessary operations in 'config'. """
         # retrieving variables
-        ops = config.get('output')
-        track = config.get('track')
+        ops = config.get('output', {})
+        track = config.get('track', {})
         coordinates = self.get_from_attr('coordinates')
 
         # ensuring that 'ops' is of the needed type
@@ -205,8 +248,10 @@ class TFDeepGalerkin(TFModel):
                                                            name='predictions', pde=config['common'])
         # forms for tracking
         if track is not None:
-            for op in track.keys():
-                _compute_op = self._make_form_calculator(track[op], coordinates, name=op, pde=config['common'])
+            ops = {**ops, **track}
+        if ops is not None:
+            for name, op in ops.items():
+                _compute_op = self._make_form_calculator(op, coordinates, name=name, pde=config['common'])
                 _ops[prefix].append(_compute_op)
 
         config['output'] = _ops
@@ -304,81 +349,84 @@ class TFDeepGalerkin(TFModel):
         Creates a tf.Tensor `solution` - the final output of the model.
         """
         if kwargs["bind_bc_ic"]:
-            # Retrieving variables
+            # Retrieving dimensionality of the problem
             n_dims = kwargs['n_dims']
             n_funs = kwargs['n_funs']
-
-            init_cond = kwargs.get("initial_condition")
-            bound_cond = kwargs["boundary_condition"]
-            domain = kwargs["domain"]
-            time_mode = kwargs["time_multiplier"]
 
             # Separate variables and perturbations
             coordinates = coordinates[:n_dims]
             perturbations = coordinates[n_dims:]
+            transforms = kwargs.get('transforms')
 
-            lower, upper = [[bounds[i] for bounds in domain] for i in range(2)]
-            n_dims_xs = n_dims if init_cond is None else n_dims - 1
-            xs_spatial = coordinates[:n_dims_xs] if n_dims_xs > 0 else []
-            xs_spatial_ = tf.concat(xs_spatial, axis=1) if n_dims_xs > 0 else None
-            xs_spatial_es = xs_spatial + perturbations
-
-            # Multiplicator for binding boundary conditions
-            binding_multiplier = 1
-            if n_dims_xs > 0:
-                lower_tf, upper_tf = [tf.constant(bounds[:n_dims_xs], shape=(1, n_dims_xs), dtype=tf.float32)
-                                      for bounds in (lower, upper)]
-                binding_multiplier *= tf.reduce_prod((xs_spatial_ - lower_tf) * (upper_tf - xs_spatial_) /
-                                                     (upper_tf - lower_tf)**2,
-                                                     axis=1, name='ansatz/xs_multiplier', keepdims=True)
-
-            # Apply ansatz to each branch of head to obtain solution-approximation for each pde
+            # Apply ansatz-transformation to obtain a vector of solution approximations
             solution = []
-            for i in range(n_funs):
-                add_term = 0
-                multiplier = 1
-                add_bind = 0
+            if transforms is None:
+                # Form an ansatz using supplied boundary and initial conditions
+                # Boundary conditions and domain
+                variables = ["initial_condition", "boundary_condition", "domain", "t0", "time_multiplier"]
+                init_cond, bound_cond, domain, t_start, time_mode = cls.get(variables=variables, config=kwargs)
 
-                # Ignore boundary condition as it is automatically set by initial condition
-                if init_cond is not None:
-                    shifted = coordinates[-1] - tf.constant(lower[-1], shape=(1, 1), dtype=tf.float32)
-                    time_mode = kwargs["time_multiplier"]
+                n_dims_xs = n_dims if init_cond is None else n_dims - 1
+                xs_spatial = coordinates[:n_dims_xs] if n_dims_xs > 0 else []
+                xs_spatial_ = tf.concat(xs_spatial, axis=1) if n_dims_xs > 0 else None
+                xs_spatial_es = xs_spatial + perturbations
 
-                    add_term += init_cond[i][0](*xs_spatial_es)
-                    multiplier *= cls._make_time_multiplier(time_mode,
-                                                            '0' if len(init_cond[i]) == 1 else '00')(shifted)
+                # Compute multiplier for binding boundary conditions
+                binding_multiplier = domain(*coordinates)
 
-                    # multiple initial conditions
-                    if len(init_cond[i]) > 1:
-                        add_term += (init_cond[i][1](*xs_spatial_es)
-                                     * cls._make_time_multiplier(time_mode, '01')(shifted))
+                # Apply ansatz to each branch of head to obtain solution-approximation for each pde
+                for i in range(n_funs):
+                    add_term = 0
+                    multiplier = 1
+                    add_bind = 0
 
-                # If there are no initial conditions, boundary conditions are used (default value is 0)
-                else:
-                    add_term += bound_cond[i][0](*xs_spatial_es)
+                    # Ignore boundary condition as it is automatically set by initial condition
+                    if init_cond is not None:
+                        shifted = coordinates[-1] - tf.constant(t_start, shape=(1, 1), dtype=tf.float32)
+                        time_mode = kwargs["time_multiplier"]
 
-                # Sometimes you need it
-                if kwargs.get('do_that_strange_magic'):
-                    if n_dims_xs > 0:
-                        lower_tf, upper_tf = [tf.constant(bounds[:n_dims_xs],
-                                                          shape=(1, n_dims_xs), dtype=tf.float32)
-                                              for bounds in (lower, upper)]
-                        binding_multiplier *= tf.reduce_prod(((xs_spatial_ - lower_tf)
-                                                              * (upper_tf - xs_spatial_)) /
-                                                             (upper_tf - lower_tf)**2,
-                                                             axis=1, name='ansatz/xs_multiplier', keepdims=True)
+                        add_term += init_cond[i][0](*xs_spatial_es)
+                        if kwargs.get("_time_multiplier") is None:  # apply time multiplier if not applied before
+                            multiplier *= cls._make_time_multiplier(time_mode,
+                                                                    '0' if len(init_cond[i]) == 1 else '00',
+                                                                    'time_scale_' + str(i))(shifted)
 
-                        add_bind = ((bound_cond[i][0](coordinates[-1]) - init_cond[i][0](lower_tf)
-                                     / (multiplier + 1e1))
-                                    * ((upper_tf - xs_spatial) / (upper_tf - lower_tf)))
-                        add_bind = tf.reshape(add_bind, shape=(-1, 1))
+                        # multiple initial conditions
+                        if len(init_cond[i]) > 1:
+                            add_term += (init_cond[i][1](*xs_spatial_es)
+                                         * cls._make_time_multiplier(time_mode, '01',
+                                                                     'time_scale_d_' + str(i))(shifted))
 
-                result = add_term + multiplier * (inputs[i]*binding_multiplier + add_bind)
-                solution.append(result)
+                    # If there are no initial conditions, boundary conditions are used (default value is 0)
+                    else:
+                        add_term += bound_cond[i][0](*xs_spatial_es)
+
+                    # Sometimes you need it
+                    if kwargs.get('do_that_strange_magic'):
+                        if n_dims_xs > 0:
+                            lower, upper = [[bounds[i] for bounds in domain] for i in range(2)]
+                            lower_tf, upper_tf = [tf.constant(bounds[:n_dims_xs],
+                                                              shape=(1, n_dims_xs), dtype=tf.float32)
+                                                  for bounds in (lower, upper)]
+
+                            add_bind = ((bound_cond[i][0](coordinates[-1]) - init_cond[i][0](lower_tf)
+                                         / (multiplier + 1e1))
+                                        * ((upper_tf - xs_spatial_) / (upper_tf - lower_tf)))
+                            add_bind = tf.reshape(add_bind, shape=(-1, 1))
+
+                    result = add_term + multiplier * (inputs[i]*binding_multiplier + add_bind)
+                    solution.append(result)
+
+            else:
+                # Form an ansatz using supplied transforms
+                for i in range(n_funs):
+                    result = transforms[i][0](inputs[i], *coordinates)
+                    solution.append(result)
+
         return tf.concat(solution, axis=-1, name='ansatz/_output')
 
     @classmethod
-    def _make_time_multiplier(cls, family, order=None):
+    def _make_time_multiplier(cls, family, order=None, variable_name='time_scale'):
         r""" Produce time multiplier: a callable, applied to an arbitrary function to bind its value
         and, possibly, first order derivataive w.r.t. to time at $t=0$.
 
@@ -390,6 +438,8 @@ class TFDeepGalerkin(TFModel):
             sets the properties of the multiplier, can be either `0` or `00` or `01`. '0'
             fixes the value of multiplier as $0$ at $t=0$, while '00' sets both value and derivative to $0$.
             In the same manner, '01' sets the value at $t=0$ to $0$ and the derivative to $1$.
+        variable_name : str
+            name of the variable used in the multiplier.
 
         Returns
         -------
@@ -399,37 +449,39 @@ class TFDeepGalerkin(TFModel):
         --------
         Form an `solution`-tensor binding the initial value (at $t=0$) of the `network`-tensor to $sin(2 \pi x)$::
 
-            solution = network * TFDeep._make_time_multiplier('sigmoid', '0')(t) + tf.sin(2 * np.pi * x)
+            solution = network * TFDeepGalerkin._make_time_multiplier('sigmoid', '0')(t) + tf.sin(2 * np.pi * x)
 
         Bind the initial value to $sin(2 \pi x)$ and the initial rate to $cos(2 \pi x)$::
 
-            solution = (network * TFDeep._make_time_multiplier('polynomial', '00')(t) +
-                            tf.sin(2 * np.pi * x) +
-                            tf.cos(2 * np.pi * x) * TFDeep._make_time_multiplier('polynomial', '01')(t))
+            solution = (network * TFDeepGalerkin._make_time_multiplier('polynomial', '00')(t) +
+                        tf.sin(2 * np.pi * x) +
+                        tf.cos(2 * np.pi * x) * TFDeepGalerkin._make_time_multiplier('polynomial', '01')(t))
         """
+        # import some tokens
+        names, _tokens = ['exp', 'sigmoid', 'V'], {}
+        add_tokens(_tokens, names=names)
+        exp, sigmoid, V = [_tokens.get(name) for name in names]
+
         if family == "sigmoid":
             if order == '0':
                 def _callable(shifted_time):
-                    log_scale = tf.Variable(0.0, name='time_scale')
-                    return tf.sigmoid(shifted_time * tf.exp(log_scale)) - 0.5
+                    return sigmoid(shifted_time * exp(V(0.0, variable_name))) - 0.5
             elif order == '00':
                 def _callable(shifted_time):
-                    log_scale = tf.Variable(0.0, name='time_scale')
-                    scale = tf.exp(log_scale)
-                    return tf.sigmoid(shifted_time * scale) - tf.sigmoid(shifted_time) * scale - 1 / 2 + scale / 2
+                    scale = exp(V(0.0, variable_name))
+                    return sigmoid(shifted_time * scale) - sigmoid(shifted_time) * scale - 1 / 2 + scale / 2
             elif order == '01':
                 def _callable(shifted_time):
-                    log_scale = tf.Variable(0.0, name='time_scale')
-                    scale = tf.exp(log_scale)
-                    return 4 * tf.sigmoid(shifted_time * scale) / scale - 2 / scale
+                    scale = exp(V(0.0, variable_name))
+                    return 4 * sigmoid(shifted_time * scale) / scale - 2 / scale
             else:
                 raise ValueError("Order " + str(order) + " is not supported.")
 
         elif family == "polynomial":
             if order == '0':
                 def _callable(shifted_time):
-                    log_scale = tf.Variable(0.0, name='time_scale')
-                    return shifted_time * tf.exp(log_scale)
+                    log_scale = V(0.0, variable_name)
+                    return shifted_time * exp(log_scale)
             elif order == '00':
                 def _callable(shifted_time):
                     return shifted_time ** 2 / 2
