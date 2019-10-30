@@ -9,4 +9,4 @@ from .wrapper import Solver
 from .plot_utils import *
 from .batchflow.sampler import *
 
-__version__ = '0.1.0'
+__version__ = '0.1.2'
