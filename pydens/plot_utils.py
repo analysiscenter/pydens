@@ -79,7 +79,11 @@ def plot_2d(model, mode='imshow', fetches=None, grid=None, x_size=None, y_size=N
     elif mode == 'contourf':
         plt.contourf(xs_grid, ys_grid, approxs, cmap=cmap)
     else:
+<<<<<<< HEAD
         from mpl_toolkits.mplot3d import Axes3D             # pylint: disable=unused-import, import-outside-toplevel
+=======
+        from mpl_toolkits.mplot3d import Axes3D             # pylint: disable=unused-import
+>>>>>>> e0b6bf998f612fa1142cef6e10622d3f86c591dc
         fig = plt.figure()
         axis = fig.gca(projection='3d')
         axis.plot_surface(xs_grid, ys_grid, approxs, rstride=1, cstride=1,
