@@ -75,7 +75,7 @@ def plot_2d(model, mode='imshow', fetches=None, grid=None, cmap='viridis',
         if mode == 'contourf':
             plt.contourf(xs_grid, ys_grid, zs_grid, cmap=cmap)
         else:
-            from mpl_toolkits.mplot3d import Axes3D             # pylint: disable=unused-import
+            from mpl_toolkits.mplot3d import Axes3D             # pylint: disable=unused-import, import-outside-toplevel
             fig = plt.figure()
             axis = fig.gca(projection='3d')
             axis.plot_surface(xs_grid, ys_grid, zs_grid, rstride=1, cstride=1,
@@ -156,7 +156,7 @@ def plot_sections_3d(model, timestamps=(0, 0.2, 0.4, 0.6, 0.7, 0.9), grid_size=(
 
         # add new canvas
         if mode == '3d_view':
-            from mpl_toolkits.mplot3d import Axes3D         # pylint: disable=unused-import
+            from mpl_toolkits.mplot3d import Axes3D         # pylint: disable=unused-import, import-outside-toplevel
             axis = fig.add_subplot(*grid_size, i + 1, projection='3d')
         else:
             axis = fig.add_subplot(*grid_size, i + 1)

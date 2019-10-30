@@ -168,7 +168,7 @@ class TFDeepGalerkin(TFModel):
             n_args = len(signature(domain).parameters)
             if n_args == 0:
                 raise ValueError("When callable, domain-arg cannot have 0 arguments.")
-            elif n_args == n_dims - 1:
+            if n_args == n_dims - 1:
                 def _domain(*coordinates):
                     return domain(*coordinates[:-1])
             elif n_args == n_dims:
