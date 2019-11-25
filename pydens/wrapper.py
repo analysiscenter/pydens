@@ -1,4 +1,4 @@
-""" PDE-Solver class. Wraps up TFDeepGalerkin-model. """
+""" PDE-Solver class. Wraps up `TFDeepGalerkin`-model. """
 import tensorflow as tf
 from tqdm import tqdm_notebook, tqdm
 
@@ -6,7 +6,8 @@ from .model_tf import TFDeepGalerkin
 
 
 class Solver:
-    """ Wrapper around `TFDeepGalerkin` to surpass BatchFlow's syntax sugar.
+    """ Solver-class for PDE-problems. Wraps up `TFDeepGalerkin`-model for convenient
+    initialization, training and inference.
 
     Parameters
     ----------
@@ -14,15 +15,25 @@ class Solver:
         class to use when buliding the model. Should inherit `TFDeepGalerkin` class.
     config : dict
         Configuration of model. Supports all of the options from `model_class`.
+    layer_size : int
+        When neural-network architecture is not specified in `config`, the default one
+        is used. This parameter regulates the width of the default architecture.
+    path : str or None
+        if supplied, `Solver`-instance is initialized from a saved model.
     """
-    def __init__(self, config, model_class=None, layer_size=15):
+    def __init__(self, config=None, model_class=None, layer_size=15, path=None):
+        config = config or {}
         model_class = model_class or config.get('model_class') or TFDeepGalerkin
-        config = self.build_config(config, layer_size)
+        config = self.build_config(config, layer_size, path)
         self.model = model_class(config)
 
 
-    def build_config(self, config, layer_size):
-        """ Add default neural network configuration. """
+    def build_config(self, config, layer_size, path):
+        """ Build model-config. Add default neural network configuration if needed. """
+        if path is not None:
+            config = {'load': {'path': path}}
+            return config
+
         n_dims = config['pde']['n_dims']
 
         if config.get('body') is None:
@@ -104,3 +115,13 @@ class Solver:
             return self.model.predict(fetches=fetches,
                                       feed_dict={'points': points})
         return self.model.predict(fetches=fetches)
+
+    def save(self, path):
+        """ Save trained Solver-model for later usage.
+
+        Parameters
+        ----------
+        path : str
+            folder where model-files (graph and trained weights) will be stored.
+        """
+        self.model.save(path=path)
