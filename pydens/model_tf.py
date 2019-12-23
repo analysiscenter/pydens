@@ -270,9 +270,9 @@ class TFDeepGalerkin(TFModel):
         placeholders_, tensors_ = super()._make_inputs(names, config, data_format)
 
         # split input so we can access individual variables later
-        coordinates = tf.split(tensors_['points'][:, :n_dims], n_dims, axis=1, name='coordinates')
+        coordinates = tf.split(tensors_['points'][:, :n_dims], n_dims, axis=1, name='inputs/coordinates')
         if n_parameters > 0:
-            perturbations = tf.split(tensors_['points'][:, n_dims:], n_parameters, axis=1, name='perturbations')
+            perturbations = tf.split(tensors_['points'][:, n_dims:], n_parameters, axis=1, name='inputs/perturbations')
         else:
             perturbations = []
 
