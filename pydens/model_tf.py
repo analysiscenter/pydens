@@ -102,10 +102,8 @@ class TFDeepGalerkin(TFModel):
         return config
 
     def combine_configs(self):
-        """ Overloads :meth:`.TFModel.build_config`.
-        PDE-problem is fetched from 'pde' key in 'self.config', and then
-        is passed to 'common' so that all of the subsequent blocks get it as 'kwargs'.
-        """
+        """ PDE-problem is fetched from 'pde' key in 'self.config'. """
+        #pylint: disable=too-many-statements
         pde = self.config.get('pde')
         if pde is None:
             raise ValueError("The PDE-problem is not specified. Use 'pde' config to set up the problem.")
@@ -188,23 +186,23 @@ class TFDeepGalerkin(TFModel):
         bound_cond = self._make_nested_list(bound_cond, n_funs, 'boundary')
         self.config.update({'pde/boundary_condition': bound_cond})
 
+        # make sure ansatz-transforms is a list if present
+        ansatz_transforms = self.config.get('ansatz/transforms')
+        if ansatz_transforms is not None:
+            self.config['ansatz/transforms'] = self._make_nested_list(ansatz_transforms, n_funs, 'ansatz')
+
         config = super().combine_configs()
         return config
 
 
     def build_config(self, names=None):
+        """ Update 'common' in model config so that all of the subsequent blocks get it as 'kwargs'. """
         config = super().build_config(names)
         # 'common' is updated with PDE-problem
         config['common'].update(self.config['pde'])
 
         config = self._make_ops(config)
         config['ansatz/coordinates'] = self.get_from_attr('coordinates')
-
-        # make sure ansatz-transforms is a list if present
-        ansatz_transforms = self.config.get('ansatz/transforms')
-        if ansatz_transforms is not None:
-            config['ansatz/transforms'] = self._make_nested_list(ansatz_transforms, n_funs, 'ansatz')
-
         return config
 
     def _make_nested_list(self, list_cond, n_funs, name=None):
