@@ -10,7 +10,7 @@
  - parametric families of PDEs
  - PDEs with trainable coefficients.
 
-This page outlines main capabilities of **PyDEns**. To get an in-depth understanding we suggest you to also read [the tutorial](https://github.com/analysiscenter/pydens/blob/master/tutorials/PDE_solving.ipynb).
+This page outlines main capabilities of **PyDEns**. To get an in-depth understanding we suggest you to also read [the tutorial](https://github.com/analysiscenter/pydens/blob/master/tutorials/0.%20Theory.ipynb).
 
 ## Getting started with **PyDEns**: solving common PDEs
 Let's solve poisson equation
