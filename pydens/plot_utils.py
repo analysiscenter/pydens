@@ -171,6 +171,8 @@ def plot_sections_3d(model, timestamps=(0, 0.2, 0.4, 0.6, 0.7, 0.9), grid_size=(
         zs_grid = model.solve(grid_t, fetches=fetches).reshape(len(xs), len(ys))
         if mode == 'imshow':
             axis.imshow(zs_grid, cmap=cmap)
+            mesh = axis.pcolormesh(zs_grid, cmap=cmap)
+            fig.colorbar(mesh, ax=axis, fraction=0.046, pad=0.04)
         elif mode == 'contourf':
             axis.contourf(xs_grid, ys_grid, zs_grid, cmap=cmap)
         elif mode == '3d_view':
