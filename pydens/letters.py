@@ -79,6 +79,11 @@ class TFLetters(Letters):
 
         # case of array-like variable
         if hasattr(coordinates, '__len__'):
+            try:
+                length = len(coordinates)
+            except TypeError:
+                # symbolic tensor of 1.15
+                return tf.gradients(func, coordinates)[0]
             return np.stack([self.D(func, coordinate) for coordinate in coordinates],
                             axis=-1).view(GradArray)
 
