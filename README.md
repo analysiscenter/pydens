@@ -2,6 +2,7 @@
 [![Python](https://img.shields.io/badge/python-3.5-blue.svg)](https://python.org)
 [![TensorFlow](https://img.shields.io/badge/TensorFlow-1.14-orange.svg)](https://tensorflow.org)
 [![Run Status](https://api.shippable.com/projects/5d2deaa02900de000646cdf7/badge?branch=master)](https://app.shippable.com/github/analysiscenter/pydens)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fanalysiscenter%2Fpydens.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fanalysiscenter%2Fpydens?ref=badge_shield)
 
 # PyDEns
 
@@ -193,3 +194,7 @@ Roman Khudorozhkov, Sergey Tsimfer, Alexander Koryagin. PyDEns framework for sol
   year         = 2019
 }
 ```
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fanalysiscenter%2Fpydens.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fanalysiscenter%2Fpydens?ref=badge_large)
