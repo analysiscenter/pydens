@@ -1,8 +1,8 @@
-import torchvision
 import torch
 from torch import nn
 import numpy as np
 from torch.autograd import grad
+from tqdm import tqdm
 
 
 class TorchModel(nn.Module):
@@ -13,13 +13,14 @@ class TorchModel(nn.Module):
         # problem's dimensionality
         self.ndims = ndims
         self.nparams = nparams
+        self._total = ndims + nparams
         self.variables = {}
 
         self.initial_condition = initial_condition
         self.boundary_condition = boundary_condition
 
         # variables for anzatc
-        self.log_scale = torch.nn.Parameter(torch.tensor(0.0, requires_grad=True))
+        self.log_scale = nn.Parameter(torch.tensor(0.0, requires_grad=True))
 
     def __enter__(self):
         return self
@@ -36,11 +37,14 @@ class TorchModel(nn.Module):
         """ Transform of the model-output needed for binding initial and boundary conditions.
         """
         def func(u, xs):
+            # get spatial variables and time separately from incoming xs
+            xs_spatial = xs[:, :self.ndims] if self.initial_condition is None else xs[:, :self.ndims - 1]
+            t = xs[:, self.ndims-1:self.ndims]
+            # get rid of parameters in anzatc
             if self.boundary_condition is not None:
-                u = u * (torch.prod(xs, dim=1, keepdim=True) *
-                         torch.prod((1 - xs), dim=1, keepdim=True)) + self.boundary_condition
+                u = u * (torch.prod(xs_spatial, dim=1, keepdim=True) *
+                         torch.prod((1 - xs_spatial), dim=1, keepdim=True)) + self.boundary_condition
             if self.initial_condition is not None:
-                t = xs[:, -1:]
                 u = (nn.Sigmoid()(t / torch.exp(self.log_scale)) - .5) * u + self.initial_condition
             return u
         return func
@@ -67,7 +71,7 @@ class CustomModel(TorchModel):
         u = self.ac2(u)
         u = self.fc3(u)
 
-        return self.anzatc()(u, xs[:, :self.ndims])
+        return self.anzatc()(u, xs)
 
 
 def D(y, x):
@@ -94,10 +98,9 @@ class Solver():
         self.criterion = criterion
         self.model = model(**kwargs)
         self.losses = []
-        self.ndims = kwargs.get('ndims')
 
         # fake run to create all variables and the making an optimizer
-        xs = [torch.rand((1, 1)) for _ in range(self.ndims)]
+        xs = [torch.rand((1, 1)) for _ in range(self.model._total)]
         for x in xs:
             x.requires_grad_()
         u_hat = self.model(*xs)
@@ -106,10 +109,10 @@ class Solver():
 
 
     def fit(self, niters, batch_size):
-        for _ in tqdm_notebook(range(niters)):
+        for _ in tqdm(range(niters)):
             # sampling points and passing it through the net
             self.optimizer.zero_grad()
-            xs = [torch.rand((batch_size, 1)) for _ in range(self.ndims)]
+            xs = [torch.rand((batch_size, 1)) for _ in range(self.model._total)]
             for x in xs:
                 x.requires_grad_()
             u_hat = self.model(*xs)
