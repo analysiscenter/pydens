@@ -3,7 +3,10 @@ from torch import nn
 import numpy as np
 from torch.autograd import grad
 from tqdm import tqdm
+from contextvars import Context, ContextVar, copy_context
 
+
+current_model = ContextVar("current_model")
 
 class TorchModel(nn.Module):
     def __init__(self, initial_condition=None, boundary_condition=None, ndims=1, nparams=0, **kwargs):
@@ -80,30 +83,43 @@ def D(y, x):
     res = grad(y.sum(), x, retain_graph=True, create_graph=True)[0]
     return res
 
-
 def V(name, *args, **kwargs):
     """ Token for a trainable variable.
     """
     # if does not exist create ow just take what's been created from the model
-    if not hasattr(current_model, name):
+    # nonlocal current_model
+    model = current_model.get()
+    if not hasattr(model, name):
         print('creating nn.Parameter')
-        setattr(current_model, name, nn.Parameter(*args, **kwargs))
-    return getattr(current_model, name)
+        setattr(model, name, nn.Parameter(*args, **kwargs))
+    return getattr(model, name)
 
 
 class Solver():
     def __init__(self, equation, model=CustomModel, criterion=nn.MSELoss(),
-                 fake_run=True, **kwargs):
+                 fake_run=True, constraints=None, **kwargs):
         self.equation = equation
+        if constraints is None:
+            self.constraints = ()
+        elif isinstance(constraints, (tuple, list)):
+            self.constraints = constraints
+        else:
+            self.constraints = (constraints, )
+
         self.criterion = criterion
         self.model = model(**kwargs)
         self.losses = []
+
+        current_model.set(self.model)
+        self.ctx = copy_context()
 
         # fake run to create all variables and the making an optimizer
         xs = [torch.rand((1, 1)) for _ in range(self.model._total)]
         for x in xs:
             x.requires_grad_()
         u_hat = self.model(*xs)
+        # with self.model as current_model:
+        _ = self.ctx.run(self.equation, u_hat, *xs)
         _ = self.equation(u_hat, *xs)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001)
 
@@ -117,12 +133,12 @@ class Solver():
                 x.requires_grad_()
             u_hat = self.model(*xs)
 
-            with self.model as current_model:
-                loss = (
-                        self.criterion(self.equation(u_hat, *xs), torch.zeros_like(xs[0]))
-                       )
-                loss.backward()
-                self.optimizer.step()
+            loss = self.criterion(self.ctx.run(self.equation, u_hat, *xs), torch.zeros_like(xs[0]))
+            for constraint in self.constraints:
+                loss += self.criterion(constraint(self.model, *xs), torch.Tensor([0.0]))
+
+            loss.backward()
+            self.optimizer.step()
 
             # gather stats
             self.losses.append(loss.detach().numpy())
