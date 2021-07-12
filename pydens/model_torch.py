@@ -25,11 +25,19 @@ class TorchModel(nn.Module):
         # variables for anzatc
         self.log_scale = nn.Parameter(torch.tensor(0.0, requires_grad=True))
 
-    def __enter__(self):
-        return self
+    def freeze_layers(self, layers):
+        """ Freeze layers
+        """
+        for layer in layers:
+            for param in getattr(self, layer).parameters():
+                param.requires_grad = False
 
-    def __exit__(self, exc_type, exc_value, exc_tb):
-        pass
+    def unfreeze_layers(self, layers):
+        """ Unfreeze layers
+        """
+        for layer in layers:
+            for param in getattr(self, layer).parameters():
+                param.requires_grad = True
 
     def forward(self, *xs):
         xs = [x.view(-1, 1) for x in xs]
@@ -118,13 +126,14 @@ class Solver():
         for x in xs:
             x.requires_grad_()
         u_hat = self.model(*xs)
-        # with self.model as current_model:
         _ = self.ctx.run(self.equation, u_hat, *xs)
         _ = self.equation(u_hat, *xs)
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001)
 
 
-    def fit(self, niters, batch_size):
+    def fit(self, niters, batch_size, losses='equation'):
+        # form the optimizer
+        self.optimizer = torch.optim.Adam([p for p in self.model.parameters() if p.requires_grad],
+                                           lr=0.001)
         for _ in tqdm(range(niters)):
             # sampling points and passing it through the net
             self.optimizer.zero_grad()
@@ -133,8 +142,14 @@ class Solver():
                 x.requires_grad_()
             u_hat = self.model(*xs)
 
-            loss = self.criterion(self.ctx.run(self.equation, u_hat, *xs), torch.zeros_like(xs[0]))
-            for constraint in self.constraints:
+            # form loss function optimizing some of equations and constraints
+            losses = losses if isinstance(losses, (tuple, list)) else (losses, )
+            constraints = [int(loss_name.replace('constraint', '').replace('_', ''))
+                           for loss_name in losses if 'constraint' in loss_name]
+            loss  = 0
+            if 'equation' in losses:
+                loss += self.criterion(self.ctx.run(self.equation, u_hat, *xs), torch.zeros_like(xs[0]))
+            for constraint in constraints:
                 loss += self.criterion(constraint(self.model, *xs), torch.Tensor([0.0]))
 
             loss.backward()
