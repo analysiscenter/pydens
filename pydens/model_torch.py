@@ -25,19 +25,29 @@ class TorchModel(nn.Module):
         # variables for anzatc
         self.log_scale = nn.Parameter(torch.tensor(0.0, requires_grad=True))
 
-    def freeze_layers(self, layers):
+    def freeze_layers(self, layers=None, variables=None):
         """ Freeze layers
         """
+        layers = () if layers is None else layers
+        variables = () if variables is None else variables
         for layer in layers:
             for param in getattr(self, layer).parameters():
                 param.requires_grad = False
+        for variable in variables:
+            param = getattr(self, variable)
+            param.requires_grad = False
 
-    def unfreeze_layers(self, layers):
+    def unfreeze_layers(self, layers=None, variables=None):
         """ Unfreeze layers
         """
+        layers = () if layers is None else layers
+        variables = () if variables is None else variables
         for layer in layers:
             for param in getattr(self, layer).parameters():
                 param.requires_grad = True
+        for variable in variables:
+            param = getattr(self, variable)
+            param.requires_grad = True
 
     def forward(self, *xs):
         xs = [x.view(-1, 1) for x in xs]
@@ -95,10 +105,8 @@ def V(name, *args, **kwargs):
     """ Token for a trainable variable.
     """
     # if does not exist create ow just take what's been created from the model
-    # nonlocal current_model
     model = current_model.get()
     if not hasattr(model, name):
-        print('creating nn.Parameter')
         setattr(model, name, nn.Parameter(*args, **kwargs))
     return getattr(model, name)
 
@@ -130,10 +138,11 @@ class Solver():
         _ = self.equation(u_hat, *xs)
 
 
-    def fit(self, niters, batch_size, losses='equation'):
+    def fit(self, niters, batch_size, losses='equation', optimizer='Adam',
+            lr=0.001, **kwargs):
         # form the optimizer
-        self.optimizer = torch.optim.Adam([p for p in self.model.parameters() if p.requires_grad],
-                                           lr=0.001)
+        self.optimizer = getattr(torch.optim, optimizer)([p for p in self.model.parameters() if p.requires_grad],
+                                                         lr=lr, **kwargs)
         for _ in tqdm(range(niters)):
             # sampling points and passing it through the net
             self.optimizer.zero_grad()
@@ -144,13 +153,13 @@ class Solver():
 
             # form loss function optimizing some of equations and constraints
             losses = losses if isinstance(losses, (tuple, list)) else (losses, )
-            constraints = [int(loss_name.replace('constraint', '').replace('_', ''))
-                           for loss_name in losses if 'constraint' in loss_name]
+            nums_constraints = [int(loss_name.replace('constraint', '').replace('_', ''))
+                                for loss_name in losses if 'constraint' in loss_name]
             loss  = 0
             if 'equation' in losses:
                 loss += self.criterion(self.ctx.run(self.equation, u_hat, *xs), torch.zeros_like(xs[0]))
-            for constraint in constraints:
-                loss += self.criterion(constraint(self.model, *xs), torch.Tensor([0.0]))
+            for num in nums_constraints:
+                loss += self.criterion(self.constraints[num](self.model, *xs), torch.Tensor([0.0]))
 
             loss.backward()
             self.optimizer.step()
