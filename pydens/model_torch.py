@@ -112,8 +112,7 @@ def V(name, *args, **kwargs):
 
 
 class Solver():
-    def __init__(self, equation, model=CustomModel, criterion=nn.MSELoss(),
-                 fake_run=True, constraints=None, **kwargs):
+    def __init__(self, equation, model=CustomModel, fake_run=True, constraints=None, **kwargs):
         self.equation = equation
         if constraints is None:
             self.constraints = ()
@@ -122,7 +121,6 @@ class Solver():
         else:
             self.constraints = (constraints, )
 
-        self.criterion = criterion
         self.model = model(**kwargs)
         self.losses = []
 
@@ -138,15 +136,21 @@ class Solver():
         _ = self.equation(u_hat, *xs)
 
 
-    def fit(self, niters, batch_size, losses='equation', optimizer='Adam',
+    def fit(self, niters, batch_size, sampler=None, losses='equation', optimizer='Adam', criterion=nn.MSELoss(),
             lr=0.001, **kwargs):
         # form the optimizer
-        self.optimizer = getattr(torch.optim, optimizer)([p for p in self.model.parameters() if p.requires_grad],
-                                                         lr=lr, **kwargs)
+        if optimizer is not None:
+            self.optimizer = getattr(torch.optim, optimizer)([p for p in self.model.parameters() if p.requires_grad],
+                                                             lr=lr, **kwargs)
         for _ in tqdm(range(niters)):
             # sampling points and passing it through the net
             self.optimizer.zero_grad()
-            xs = [torch.rand((batch_size, 1)) for _ in range(self.model._total)]
+
+            if sampler is None:
+                xs = [torch.rand((batch_size, 1)) for _ in range(self.model._total)]
+            else:
+                xs_concat = sampler.sample(batch_size)
+                xs = [torch.from_numpy(xs_concat[:, i:i+1]) for i in range(xs_concat.shape[1])]
             for x in xs:
                 x.requires_grad_()
             u_hat = self.model(*xs)
@@ -157,9 +161,9 @@ class Solver():
                                 for loss_name in losses if 'constraint' in loss_name]
             loss  = 0
             if 'equation' in losses:
-                loss += self.criterion(self.ctx.run(self.equation, u_hat, *xs), torch.zeros_like(xs[0]))
+                loss += criterion(self.ctx.run(self.equation, u_hat, *xs), torch.zeros_like(xs[0]))
             for num in nums_constraints:
-                loss += self.criterion(self.constraints[num](self.model, *xs), torch.Tensor([0.0]))
+                loss += criterion(self.constraints[num](self.model, *xs), torch.Tensor([0.0]))
 
             loss.backward()
             self.optimizer.step()
