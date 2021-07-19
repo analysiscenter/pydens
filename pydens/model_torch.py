@@ -19,7 +19,10 @@ class TorchModel(nn.Module):
         self._total = ndims + nparams
         self.variables = {}
 
-        self.initial_condition = initial_condition
+        if initial_condition is None:
+            self.initial_condition = None
+        else:
+            self.initial_condition = initial_condition if callable(initial_condition) else lambda: initial_condition
         self.boundary_condition = boundary_condition
 
         # variables for anzatc
@@ -66,7 +69,7 @@ class TorchModel(nn.Module):
                 u = u * (torch.prod(xs_spatial, dim=1, keepdim=True) *
                          torch.prod((1 - xs_spatial), dim=1, keepdim=True)) + self.boundary_condition
             if self.initial_condition is not None:
-                u = (nn.Sigmoid()(t / torch.exp(self.log_scale)) - .5) * u + self.initial_condition
+                u = (nn.Sigmoid()(t / torch.exp(self.log_scale)) - .5) * u + self.initial_condition()
             return u
         return func
 
@@ -112,7 +115,7 @@ def V(name, *args, **kwargs):
 
 
 class Solver():
-    def __init__(self, equation, model=CustomModel, fake_run=True, constraints=None, **kwargs):
+    def __init__(self, equation, model=CustomModel, constraints=None, **kwargs):
         self.equation = equation
         if constraints is None:
             self.constraints = ()
@@ -149,11 +152,11 @@ class Solver():
             if sampler is None:
                 xs = [torch.rand((batch_size, 1)) for _ in range(self.model._total)]
             else:
-                xs_concat = sampler.sample(batch_size)
+                xs_concat = sampler.sample(batch_size).astype(np.float32)
                 xs = [torch.from_numpy(xs_concat[:, i:i+1]) for i in range(xs_concat.shape[1])]
             for x in xs:
                 x.requires_grad_()
-            u_hat = self.model(*xs)
+            u_hat = self.ctx.run(self.model, *xs)
 
             # form loss function optimizing some of equations and constraints
             losses = losses if isinstance(losses, (tuple, list)) else (losses, )
@@ -163,7 +166,8 @@ class Solver():
             if 'equation' in losses:
                 loss += criterion(self.ctx.run(self.equation, u_hat, *xs), torch.zeros_like(xs[0]))
             for num in nums_constraints:
-                loss += criterion(self.constraints[num](self.model, *xs), torch.Tensor([0.0]))
+                loss += criterion(self.ctx.run(self.constraints[num], self.model, *xs),
+                                  torch.Tensor([0.0]))
 
             loss.backward()
             self.optimizer.step()
