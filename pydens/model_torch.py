@@ -144,7 +144,7 @@ class Solver():
         # form the optimizer
         if optimizer is not None:
             self.optimizer = getattr(torch.optim, optimizer)([p for p in self.model.parameters() if p.requires_grad],
-                                                             lr=lr, **kwargs)
+                                                              lr=lr, **kwargs)
         for _ in tqdm(range(niters)):
             # sampling points and passing it through the net
             self.optimizer.zero_grad()
@@ -174,3 +174,14 @@ class Solver():
 
             # gather stats
             self.losses.append(loss.detach().numpy())
+
+    def solve(self, points):
+        # cast shape and dtype of points-array
+        points = np.array(points)
+        if len(points.shape) == 1:
+            points = points.reshape(-1, 1)
+        points = torch.Tensor(points).float()
+
+        # get the predictions
+        result = self.ctx.run(self.model, points)
+        return result.cpu().detach().numpy()
