@@ -19,7 +19,7 @@ Let's solve poisson equation
 <img src="https://raw.githubusercontent.com/analysiscenter/pydens/master/imgs/poisson_eq.png?invert_in_darkmode" align=middle width=621.3306pt height=38.973825pt/>
 </p>
 
-using simple feed-forward neural network with `tahn`-activations. The first step is to add a grammar of *tokens* - expressions used for writing down differential equations - to the current namespace:
+using simple feed-forward neural network with `tanh`-activations. The first step is to add a grammar of *tokens* - expressions used for writing down differential equations - to the current namespace:
 
 ```python
 from pydens import Solver, NumpySampler, add_tokens
