@@ -22,7 +22,8 @@ class TorchModel(nn.Module):
         if initial_condition is None:
             self.initial_condition = None
         else:
-            self.initial_condition = initial_condition if callable(initial_condition) else lambda: initial_condition
+            self.initial_condition = (initial_condition if callable(initial_condition)
+                                      else lambda *args: initial_condition)
         self.boundary_condition = boundary_condition
 
         # variables for anzatc
@@ -69,7 +70,9 @@ class TorchModel(nn.Module):
                 u = u * (torch.prod(xs_spatial, dim=1, keepdim=True) *
                          torch.prod((1 - xs_spatial), dim=1, keepdim=True)) + self.boundary_condition
             if self.initial_condition is not None:
-                u = (nn.Sigmoid()(t / torch.exp(self.log_scale)) - .5) * u + self.initial_condition()
+                _xs_spatial = [xs_spatial[:, i] for i in range(xs_spatial.shape[1])]
+                u = ((nn.Sigmoid()(t / torch.exp(self.log_scale)) - .5) * u
+                     + self.initial_condition(*_xs_spatial).view(-1, 1))
             return u
         return func
 
