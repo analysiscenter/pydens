@@ -67,7 +67,7 @@ and run the optimization procedure
 
 ```python
 solver = Solver(equation=pde, ndims=2, boundary_condition=1)
-solver.fit(batch_size=100, n_iters=1500)
+solver.fit(batch_size=100, niters=1500)
 ```
 in a fraction of second we've got a mesh-free approximation of the solution on **[0, 1]X[0, 1]**-square:
 
@@ -101,7 +101,7 @@ def odeparam(f, x, e):
 s = NumpySampler('uniform') & NumpySampler('uniform', low=1, high=5)
 
 solver = Solver(equation=odeparam, ndims=1, nparams=1, initial_condition=1)
-solver.fit(batch_size=1000, sampler=s, n_iters=5000)
+solver.fit(batch_size=1000, sampler=s, niters=5000)
 # solving the whole family takes no more than a couple of seconds!
 ```
 
@@ -141,9 +141,9 @@ Hence, model-fitting comes in two parts now: (i) solving the equation and (ii) a
 the steps we need to freeze layers of the network to adjust only the adjustable variable:
 
 ```python
-solver.fit(batch_size=150, n_iters=100, lr=0.05)
+solver.fit(batch_size=150, niters=100, lr=0.05)
 solver.model.freeze_layers(['fc1', 'fc2', 'fc3'], ['log_scale'])
-solver.fit(batch_size=150, n_iters=100, lr=0.05)
+solver.fit(batch_size=150, niters=100, lr=0.05)
 ```
 
 Check out the results:
