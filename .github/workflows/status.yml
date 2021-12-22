@@ -9,16 +9,16 @@ jobs:
     runs-on: ubuntu-latest
 
     container:
-      image: analysiscenter1/ds-py3:cpu
+      image: analysiscenter1/ds-py3
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
 
     - name: Update pip
       run: pip3 install -U pip
 
     - name: Update pylint
-      run: pip3 install -U pylint
+      run: pip3 install -U pylint=2.6.2
 
     - name: Install requirements
       run: pip3 install -r requirements.txt
