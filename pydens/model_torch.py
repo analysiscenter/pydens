@@ -1,24 +1,29 @@
+""" Contains classes for solving differential equations with neural networks. """
+
+from contextvars import ContextVar, copy_context
+
+import numpy as np
 import torch
 from torch import nn
-import numpy as np
 from torch.autograd import grad
 from tqdm import tqdm
-from contextvars import Context, ContextVar, copy_context
-from .batchflow.batchflow.models.torch.layers import ConvBlock
+
+from .batchflow.batchflow.models.torch.layers import ConvBlock # pylint: disable=import-error
 
 
 current_model = ContextVar("current_model")
 
 class TorchModel(nn.Module):
+    """ Pytorch model for solving differential equations with neural networks.
+    """
     def __init__(self, initial_condition=None, boundary_condition=None, ndims=1, nparams=0, **kwargs):
-        """ Pytorch model for solving differential equations with neural networks.
-        """
+        _ = kwargs
         super().__init__()
 
         # Store the number of variables and parameters - dimensionality of the problem.
         self.ndims = ndims
         self.nparams = nparams
-        self._total = ndims + nparams
+        self.total = ndims + nparams
         self.variables = {}
 
         # Parse and store initial and boundary condition.
@@ -66,13 +71,14 @@ class TorchModel(nn.Module):
             param.requires_grad = True
 
     def forward(self, *xs):
+        """ Pass variables through the network and apply anzatc-transformation to bind
+        initial condition. """
         xs = [x.view(-1, 1) for x in xs]
         xs = torch.cat(xs, dim=1)
         return xs
 
     def anzatc(self):
-        """ Make transform of the model-output needed for binding initial and boundary conditions.
-        """
+        """ Make transform of the model-output needed for binding initial and boundary conditions. """
         def func(u, xs):
             """ Anzatc-transformation itself. """
             # Get tensor of spatial variables and time-tensor.
@@ -104,7 +110,7 @@ class ConvBlockModel(TorchModel):
         kwargs.update(layout=layout, units=units, activation=activation)
 
         # Assemble conv-block.
-        fake_inputs = torch.rand((2, self._total), dtype=torch.float32)
+        fake_inputs = torch.rand((2, self.total), dtype=torch.float32)
         self.conv_block = ConvBlock(inputs=fake_inputs, **kwargs)
 
     def forward(self, *xs):
@@ -141,6 +147,7 @@ class Solver():
         else:
             self.constraints = (constraints, )
         self.losses = []
+        self.optimizer = None
 
         # Initialize neural network for solving the equation.
         self.model = model(**kwargs)
@@ -150,7 +157,7 @@ class Solver():
         self.ctx = copy_context()
 
         # Perform fake run of the model to create all the variables (coming from V-token).
-        xs = [torch.rand((1, 1)) for _ in range(self.model._total)]
+        xs = [torch.rand((1, 1)) for _ in range(self.model.total)]
         for x in xs:
             x.requires_grad_()
         u_hat = self.model(*xs)
@@ -159,7 +166,8 @@ class Solver():
 
 
     def fit(self, niters, batch_size, sampler=None, losses='equation', optimizer='Adam', criterion=nn.MSELoss(),
-            lr=0.001, **kwargs):
+            lr=0.001, **kwargs):    
+        """ Fit the model inside the solver-instance. """
         # Initialize the optimizer if supplied.
         if optimizer is not None:
             self.optimizer = getattr(torch.optim, optimizer)([p for p in self.model.parameters()
@@ -172,7 +180,7 @@ class Solver():
 
             # Sample batch of points and compute solution-approximation on the batch.
             if sampler is None:
-                xs = [torch.rand((batch_size, 1)) for _ in range(self.model._total)]
+                xs = [torch.rand((batch_size, 1)) for _ in range(self.model.total)]
             else:
                 xs_concat = sampler.sample(batch_size).astype(np.float32)
                 xs = [torch.from_numpy(xs_concat[:, i:i+1]) for i in range(xs_concat.shape[1])]
