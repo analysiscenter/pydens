@@ -99,15 +99,16 @@ class TorchModel(nn.Module):
         return func
 
 class ConvBlockModel(TorchModel):
-    def __init__(self, layout='fafaf', units=[20, 30, 1], activation='Sigmoid', **kwargs):
-        """ Using capabilities of conv-block.
-        """
+    """ Model that uses capabilities of batchflow.models.torch.conv_block. Can create
+    large family of neural networks in a line of code.
+    """
+    def __init__(self, layout='fafaf', units=(20, 30, 1), activation='Sigmoid', **kwargs):
         super().__init__(**kwargs)
 
         # Prepare kwargs for conv-block.
         for key in ['initial_condition', 'ndims', 'nparams', 'boundary_condition']:
             _ = kwargs.pop(key, None)
-        kwargs.update(layout=layout, units=units, activation=activation)
+        kwargs.update(layout=layout, units=list(units), activation=activation)
 
         # Assemble conv-block.
         fake_inputs = torch.rand((2, self.total), dtype=torch.float32)
@@ -166,7 +167,7 @@ class Solver():
 
 
     def fit(self, niters, batch_size, sampler=None, losses='equation', optimizer='Adam', criterion=nn.MSELoss(),
-            lr=0.001, **kwargs):    
+            lr=0.001, **kwargs):
         """ Fit the model inside the solver-instance. """
         # Initialize the optimizer if supplied.
         if optimizer is not None:
