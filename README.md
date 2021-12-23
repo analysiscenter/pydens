@@ -19,6 +19,7 @@ Let's solve poisson equation
 <img src="https://raw.githubusercontent.com/analysiscenter/pydens/master/imgs/poisson_eq.png?invert_in_darkmode" align=middle width=621.3306pt height=38.973825pt/>
 </p>
 
+
 using simple feed-forward neural network. Let's start by importing `Solver`-class along with other needed libraries:
 
 ```python
