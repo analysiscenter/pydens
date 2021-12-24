@@ -1,6 +1,6 @@
 """ Contains classes for solving differential equations with neural networks. """
 
-from contextvars import ContextVar, copy_context
+from contextvars import ContextVar, Token, copy_context
 
 import numpy as np
 import torch
@@ -176,6 +176,7 @@ class Solver():
                                                               lr=lr, **kwargs)
 
         # Perform `niters`-iterations of optimizer steps.
+        self.model.train()
         for _ in tqdm(range(niters)):
             self.optimizer.zero_grad()
 
@@ -211,5 +212,11 @@ class Solver():
         """ Get approximation to a solution in a set of points.
         Points are given by a list of tensors.
         """
+        xs = list(xs)
+        for i, x in enumerate(xs):
+            if not isinstance(x, torch.Tensor):
+                xs[i] = torch.Tensor(np.array(x)).float()
+
+        self.model.eval()
         result = self.ctx.run(self.model, *xs)
         return result.cpu().detach().numpy()
