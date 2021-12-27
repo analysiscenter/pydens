@@ -1,6 +1,6 @@
 """ Contains classes for solving differential equations with neural networks. """
 
-from contextvars import ContextVar, Token, copy_context
+from contextvars import ContextVar, copy_context
 
 import numpy as np
 import torch
@@ -163,7 +163,6 @@ class Solver():
             x.requires_grad_()
         u_hat = self.model(*xs)
         _ = self.ctx.run(self.equation, u_hat, *xs)
-        # _ = self.equation(u_hat, *xs)
 
 
     def fit(self, niters, batch_size, sampler=None, losses='equation', optimizer='Adam', criterion=nn.MSELoss(),
