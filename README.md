@@ -32,42 +32,22 @@ import torch
 You can now set up a **PyDEns**-model for solving the task at hand. For this you need to supply the equation into a `Solver`-instance. Note the use of differentiation token `D`:
 
 ```python
+# Define the equation as a callable.
 def pde(f, x, y):
     return D(D(f, x), x) + D(D(f, y), y) - 5 * torch.sin(np.pi * (x + y))
 
+# Supply the equation, initial condition, the number of variables (`ndims`)
+# and the configration of neural network in Solver-instance.
+solver = Solver(equation=pde, ndims=2, boundary_condition=1,
+                layout='fa fa fa f', activation='Tanh', units=[10, 12, 15, 1])
+
 ```
 
-define the neural network architecture, inheriting base class `TorchModel`:
+Note that we defined the architecture of the neural network by supplying `layout`, `activation` and `units` parameters. Here `layout` configures the sequence of layers: `fa fa fa f` stands for `f`ully connected architecture with four layers and three `a`ctivations. In its turn, `units` and `activation` cotrol the number of units in dense layers and activation-function. When defining neural network this way use [`ConvBlock`](https://analysiscenter.github.io/batchflow/api/batchflow.models.torch.layers.html?highlight=baseconvblock#batchflow.models.torch.layers.BaseConvBlock) from [`BatchFlow`](https://github.com/analysiscenter/batchflow). Check out its capabilities to understand more: say, making a network with attention and skip connections.
+
+It's time to run the optimization procedure
 
 ```python
-class CustomModel(TorchModel):
-    def __init__(self, **kwargs):
-        """ Simple model for solving PDEs - inherits base torch-model.
-        """
-        super().__init__(**kwargs)
-
-        # define network layers
-        self.fc1 = nn.Linear(self.ndims + self.nparams, 20)
-        self.ac1 = nn.Sigmoid()
-        self.fc2 = nn.Linear(20, 30)
-        self.ac2 = nn.Sigmoid()
-        self.fc3 = nn.Linear(30, 1)
-
-    def forward(self, *xs):
-        xs = super().forward(*xs)
-        u = self.fc1(xs)
-        u = self.ac1(u)
-        u = self.fc2(u)
-        u = self.ac2(u)
-        u = self.fc3(u)
-
-        return self.anzatc()(u, xs)
-```
-
-and run the optimization procedure
-
-```python
-solver = Solver(equation=pde, ndims=2, boundary_condition=1)
 solver.fit(batch_size=100, niters=1500)
 ```
 in a fraction of second we've got a mesh-free approximation of the solution on **[0, 1]X[0, 1]**-square:
