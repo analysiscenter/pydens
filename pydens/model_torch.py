@@ -70,13 +70,6 @@ class TorchModel(nn.Module):
             param = getattr(self, variable)
             param.requires_grad = True
 
-    def forward(self, *xs):
-        """ Pass variables through the network and apply anzatc-transformation to bind
-        initial condition. """
-        xs = [x.view(-1, 1) for x in xs]
-        xs = torch.cat(xs, dim=1)
-        return xs
-
     def anzatc(self):
         """ Make transform of the model-output needed for binding initial and boundary conditions. """
         def func(u, xs):
@@ -114,8 +107,7 @@ class ConvBlockModel(TorchModel):
         fake_inputs = torch.rand((2, self.total), dtype=torch.float32)
         self.conv_block = ConvBlock(inputs=fake_inputs, **kwargs)
 
-    def forward(self, *xs):
-        xs = super().forward(*xs)
+    def forward(self, xs):
         u = self.conv_block(xs)
         return self.anzatc()(u, xs)
 
@@ -139,6 +131,25 @@ def V(name, *args, **kwargs):
 class Solver():
     """ Solver-class for handling differential equations with neural networks.
     """
+    @classmethod
+    def reshape_and_concat(cls, tensors):
+        """ Cast, reshape and concatenate sequence of incoming tensors. """
+        # Determine batch size as max-len of a tensor.
+        xs = list(tensors)
+        batch_size = np.max([tensor.shape[0] for tensor in xs if isinstance(tensor, (np.ndarray, torch.Tensor))])
+
+        # Perform cast and reshape of all tensors in the list.
+        for i, x in enumerate(xs):
+            if isinstance(x, (int, float)):
+                xs[i] = torch.Tensor(np.tile(x, (batch_size, 1))).float()
+            if isinstance(x, np.ndarray):
+                if x.size != batch_size:
+                    x = np.tile(x.squeeze()[0], (batch_size, 1))
+                xs[i] = torch.Tensor(x.reshape(batch_size, 1)).float()
+            if isinstance(x, torch.Tensor):
+                xs[i] = x.view(-1, 1)
+        return torch.cat(xs, dim=1)
+
     def __init__(self, equation, model=ConvBlockModel, constraints=None, **kwargs):
         self.equation = equation
         if constraints is None:
@@ -161,7 +172,8 @@ class Solver():
         xs = [torch.rand((1, 1)) for _ in range(self.model.total)]
         for x in xs:
             x.requires_grad_()
-        u_hat = self.model(*xs)
+        xs_concat = self.reshape_and_concat(xs)
+        u_hat = self.model(xs_concat)
         _ = self.ctx.run(self.equation, u_hat, *xs)
 
 
@@ -183,22 +195,31 @@ class Solver():
             if sampler is None:
                 xs = [torch.rand((batch_size, 1)) for _ in range(self.model.total)]
             else:
-                xs_concat = sampler.sample(batch_size).astype(np.float32)
-                xs = [torch.from_numpy(xs_concat[:, i:i+1]) for i in range(xs_concat.shape[1])]
+                xs_array = sampler.sample(batch_size).astype(np.float32)
+                xs = [torch.from_numpy(xs_array[:, i:i+1]) for i in range(xs_array.shape[1])]
             for x in xs:
                 x.requires_grad_()
-            u_hat = self.ctx.run(self.model, *xs)
+            xs_concat = self.reshape_and_concat(xs)
+            u_hat = self.ctx.run(self.model, xs_concat)
 
             # Compute loss: form it summing equation-loss and constraints-loss.
             losses = losses if isinstance(losses, (tuple, list)) else (losses, )
             nums_constraints = [int(loss_name.replace('constraint', '').replace('_', ''))
                                 for loss_name in losses if 'constraint' in loss_name]
             loss  = 0
+
+            # Include equation loss.
             if 'equation' in losses:
                 loss += criterion(self.ctx.run(self.equation, u_hat, *xs), torch.zeros_like(xs[0]))
+
+            # Include additional constraints' loss.
+            def _forward(*xs):
+                """ Concat and apply the model. """
+                xs = self.reshape_and_concat(xs)
+                return self.model(xs)
+
             for num in nums_constraints:
-                loss += criterion(self.ctx.run(self.constraints[num], self.model, *xs),
-                                  torch.Tensor([0.0]))
+                loss += criterion(self.ctx.run(self.constraints[num], _forward, *xs), torch.Tensor([0.0]))
 
             # Optimizer step.
             loss.backward()
@@ -211,11 +232,10 @@ class Solver():
         """ Get approximation to a solution in a set of points.
         Points are given by a list of tensors.
         """
-        xs = list(xs)
-        for i, x in enumerate(xs):
-            if not isinstance(x, torch.Tensor):
-                xs[i] = torch.Tensor(np.array(x)).float()
+        # Reshape and concat.
+        xs = self.reshape_and_concat(xs)
 
+        # Perform inference.
         self.model.eval()
-        result = self.ctx.run(self.model, *xs)
+        result = self.ctx.run(self.model, xs)
         return result.cpu().detach().numpy()
