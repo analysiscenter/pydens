@@ -1,5 +1,6 @@
 """ Contains classes for solving differential equations with neural networks. """
 
+from abc import ABC, abstractmethod
 from contextvars import ContextVar, copy_context
 
 import numpy as np
@@ -13,7 +14,7 @@ from .batchflow.batchflow.models.torch.layers import ConvBlock # pylint: disable
 
 current_model = ContextVar("current_model")
 
-class TorchModel(nn.Module):
+class TorchModel(ABC, nn.Module):
     """ Pytorch model for solving differential equations with neural networks.
     """
     def __init__(self, initial_condition=None, boundary_condition=None, ndims=1, nparams=0, **kwargs):
@@ -37,6 +38,11 @@ class TorchModel(nn.Module):
         # Initialize trainable variables for anzatc-trasform to bind initial
         # and boundary conditions.
         self.log_scale = nn.Parameter(torch.tensor(0.0, requires_grad=True))
+
+    @abstractmethod
+    def forward(self, xs):
+        """ Forward of the model-network. """
+        pass
 
     def freeze_trainable(self, layers=None, variables=None):
         """ Freeze layers and trainable variables.
