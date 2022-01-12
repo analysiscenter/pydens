@@ -41,8 +41,8 @@ class TorchModel(nn.Module):
     def freeze_trainable(self, layers=None, variables=None):
         """ Freeze layers and trainable variables.
         """
-        layers = () if layers is None else layers
-        variables = () if variables is None else variables
+        layers = layers or []
+        variables = variables or []
 
         # Freeze layers.
         for layer in layers:
@@ -57,8 +57,8 @@ class TorchModel(nn.Module):
     def unfreeze_trainable(self, layers=None, variables=None):
         """ Unfreeze layers and trainable variables.
         """
-        layers = () if layers is None else layers
-        variables = () if variables is None else variables
+        layers = layers or []
+        variables = variables or []
 
         # Unfreeze layers.
         for layer in layers:
@@ -70,26 +70,23 @@ class TorchModel(nn.Module):
             param = getattr(self, variable)
             param.requires_grad = True
 
-    def anzatc(self):
-        """ Make transform of the model-output needed for binding initial and boundary conditions. """
-        def func(u, xs):
-            """ Anzatc-transformation itself. """
-            # Get tensor of spatial variables and time-tensor.
-            xs_spatial = xs[:, :self.ndims] if self.initial_condition is None else xs[:, :self.ndims - 1]
-            t = xs[:, self.ndims - 1:self.ndims]
+    def anzatc(self, u, xs):
+        """ Anzatc-transformation of the model-output needed for binding initial and boundary conditions. """
+        # Get tensor of spatial variables and time-tensor.
+        xs_spatial = xs[:, :self.ndims] if self.initial_condition is None else xs[:, :self.ndims - 1]
+        t = xs[:, self.ndims - 1:self.ndims]
 
-            # Apply transformation to bind the boundary condition.
-            if self.boundary_condition is not None:
-                u = u * (torch.prod(xs_spatial, dim=1, keepdim=True) *
-                         torch.prod((1 - xs_spatial), dim=1, keepdim=True)) + self.boundary_condition
+        # Apply transformation to bind the boundary condition.
+        if self.boundary_condition is not None:
+            u = u * (torch.prod(xs_spatial, dim=1, keepdim=True) *
+                     torch.prod((1 - xs_spatial), dim=1, keepdim=True)) + self.boundary_condition
 
-            # Apply transformation to bind the initial condition.
-            if self.initial_condition is not None:
-                _xs_spatial = [xs_spatial[:, i] for i in range(xs_spatial.shape[1])]
-                u = ((nn.Sigmoid()(t / torch.exp(self.log_scale)) - .5) * u
-                     + self.initial_condition(*_xs_spatial).view(-1, 1))
-            return u
-        return func
+        # Apply transformation to bind the initial condition.
+        if self.initial_condition is not None:
+            _xs_spatial = [xs_spatial[:, i] for i in range(xs_spatial.shape[1])]
+            u = ((nn.Sigmoid()(t / torch.exp(self.log_scale)) - .5) * u
+                 + self.initial_condition(*_xs_spatial).view(-1, 1))
+        return u
 
 class ConvBlockModel(TorchModel):
     """ Model that uses capabilities of batchflow.models.torch.conv_block. Can create
@@ -109,7 +106,7 @@ class ConvBlockModel(TorchModel):
 
     def forward(self, xs):
         u = self.conv_block(xs)
-        return self.anzatc()(u, xs)
+        return self.anzatc(u, xs)
 
 def D(y, x):
     """ Differentiation token.
@@ -226,7 +223,7 @@ class Solver():
             self.optimizer.step()
 
             # Gather and store training stats.
-            self.losses.append(loss.detach().numpy())
+            self.losses.append(loss.detach().cpu().numpy())
 
     def solve(self, *xs):
         """ Get approximation to a solution in a set of points.
@@ -238,4 +235,4 @@ class Solver():
         # Perform inference.
         self.model.eval()
         result = self.ctx.run(self.model, xs)
-        return result.cpu().detach().numpy()
+        return result.detach().cpu().numpy()
