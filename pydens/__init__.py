@@ -4,4 +4,4 @@
 from .model_torch import Solver, D, V, TorchModel, ConvBlockModel
 from .batchflow.sampler import *
 
-__version__ = '0.1.2'
+__version__ = '1.0.0'
