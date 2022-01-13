@@ -1,6 +1,6 @@
 [![License](https://img.shields.io/github/license/analysiscenter/pydens.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Python](https://img.shields.io/badge/python-3.5-blue.svg)](https://python.org)
-[![TensorFlow](https://img.shields.io/badge/TensorFlow-1.14-orange.svg)](https://tensorflow.org)
+[![PyTorch](https://img.shields.io/badge/PyTorch-1.7-orange.svg)](https://pytorch.org)
 [![Run Status](https://api.shippable.com/projects/5d2deaa02900de000646cdf7/badge?branch=master)](https://app.shippable.com/github/analysiscenter/pydens)
 
 # PyDEns
@@ -19,38 +19,36 @@ Let's solve poisson equation
 <img src="https://raw.githubusercontent.com/analysiscenter/pydens/master/imgs/poisson_eq.png?invert_in_darkmode" align=middle width=621.3306pt height=38.973825pt/>
 </p>
 
-using simple feed-forward neural network with `tanh`-activations. The first step is to add a grammar of *tokens* - expressions used for writing down differential equations - to the current namespace:
+
+using simple feed-forward neural network. Let's start by importing `Solver`-class along with other needed libraries:
 
 ```python
-from pydens import Solver, NumpySampler, add_tokens
+from pydens import Solver, NumpySampler
 import numpy as np
+import torch
 
-add_tokens()
-# we've now got functions like sin, cos, D in our namespace. More on that later!
 ```
 
-You can now set up a **PyDEns**-model for solving the task at hand using *configuration dictionary*. Note the use of differentiation token `D` and `sin`-token:
+You can now set up a **PyDEns**-model for solving the task at hand. For this you need to supply the equation into a `Solver`-instance. Note the use of differentiation token `D`:
 
 ```python
-pde = {'n_dims': 2,
-       'form': lambda u, x, y: D(D(u, x), x) + D(D(u, y), y) - 5 * sin(np.pi * (x + y)),
-       'boundary_condition': 1}
+# Define the equation as a callable.
+def pde(f, x, y):
+    return D(D(f, x), x) + D(D(f, y), y) - 5 * torch.sin(np.pi * (x + y))
 
-body = {'layout': 'fa fa fa f',
-        'units': [15, 25, 15, 1],
-        'activation': [tf.nn.tanh, tf.nn.tanh, tf.nn.tanh]}
+# Supply the equation, initial condition, the number of variables (`ndims`)
+# and the configration of neural network in Solver-instance.
+solver = Solver(equation=pde, ndims=2, boundary_condition=1,
+                layout='fa fa fa f', activation='Tanh', units=[10, 12, 15, 1])
 
-config = {'body': body,
-          'pde': pde}
-
-us = NumpySampler('uniform', dim=2) # procedure for sampling points from domain
 ```
 
-and run the optimization procedure
+Note that we defined the architecture of the neural network by supplying `layout`, `activation` and `units` parameters. Here `layout` configures the sequence of layers: `fa fa fa f` stands for `f`ully connected architecture with four layers and three `a`ctivations. In its turn, `units` and `activation` cotrol the number of units in dense layers and activation-function. When defining neural network this way use [`ConvBlock`](https://analysiscenter.github.io/batchflow/api/batchflow.models.torch.layers.html?highlight=baseconvblock#batchflow.models.torch.layers.BaseConvBlock) from [`BatchFlow`](https://github.com/analysiscenter/batchflow).
+
+It's time to run the optimization procedure
 
 ```python
-dg = Solver(config)
-dg.fit(batch_size=100, sampler=us, n_iters=1500)
+solver.fit(batch_size=100, niters=1500)
 ```
 in a fraction of second we've got a mesh-free approximation of the solution on **[0, 1]X[0, 1]**-square:
 
@@ -74,26 +72,24 @@ Clearly, the solution is a **sin** wave with a phase parametrized by ϵ:
 <img src="https://raw.githubusercontent.com/analysiscenter/pydens/master/imgs/sinus_sol_expr.png?invert_in_darkmode" align=middle height=18.973825pt/>
 </p>
 
-Solving this problem is just as easy as solving common PDEs. You only need to introduce parameter in the equation, using token `P`:
+Solving this problem is just as easy as solving common PDEs. You only need to introduce parameter `e` in the equation and supply the number of parameters (`nparams`) into a `Solver`-instance:
 
 ```python
-pde = {'n_dims': 1,
-       'form': lambda u, t, e: D(u, t) - P(e) * np.pi * cos(P(e) * np.pi * t),
-       'initial_condition': 1}
+def odeparam(f, x, e):
+    return D(f, x) - e * np.pi * torch.cos(e * np.pi * x)
 
-config = {'pde': pde}
 # One for argument, one for parameter
 s = NumpySampler('uniform') & NumpySampler('uniform', low=1, high=5)
 
-dg = Solver(config)
-dg.fit(batch_size=1000, sampler=s, n_iters=5000)
+solver = Solver(equation=odeparam, ndims=1, nparams=1, initial_condition=1)
+solver.fit(batch_size=1000, sampler=s, niters=5000, lr=0.01)
 # solving the whole family takes no more than a couple of seconds!
 ```
 
 Check out the result:
 
 <p align="center">
-<img src="https://raw.githubusercontent.com/analysiscenter/pydens/master/imgs/sinus_sol.gif?invert_in_darkmode" align=middle height=250.973825pt/>
+<img src="https://raw.githubusercontent.com/analysiscenter/pydens/master/imgs/sinus_parametric.gif?invert_in_darkmode" align=middle height=250.973825pt/>
 </p>
 
 ### Solving PDEs with trainable coefficients
@@ -110,28 +106,25 @@ Of course, without additional information, [the problem is undefined](https://en
 <img src="https://raw.githubusercontent.com/analysiscenter/pydens/master/imgs/sinus_eq_middle_fix.png?invert_in_darkmode" align=middle height=18.973825pt/>
 </p>
 
-Setting this problem requires a [slightly more complex configuring](https://github.com/analysiscenter/pydens/blob/master/tutorials/PDE_solving.ipynb). Note the use of `V`-token, that stands for trainable variable, in the initial condition of the problem. Also pay attention to `train_steps`-key of the `config`, where *two train steps* are configured: one for better solving the equation and the other for satisfying the additional constraint:
+Setting this problem requires a [slightly more complex configuring](https://github.com/analysiscenter/pydens/blob/master/tutorials/PDE_solving.ipynb). Note the use of `V`-token, that stands for trainable variable, in the initial condition of the problem. Also pay attention to the additional constraint supplied into the `Solver` instance. This constraint binds the final solution to zero at `t=0.5`:
 
 ```python
-pde = {'n_dims': 1,
-       'form': lambda u, t: D(u, t) - 2 * np.pi * cos(2 * np.pi * t),
-       'initial_condition': lambda: V(3.0)}
+def odevar(u, t):
+    return D(u, t) - 2 * np.pi * torch.cos(2 * np.pi * t)
+def initial(*args):
+    return V('init', data=torch.Tensor([3.0]))
 
-config = {'pde': pde,
-          'track': {'u05': lambda u, t: u - 2},
-          'train_steps': {'initial_condition_step': {'scope': 'addendums',
-                                                     'loss': {'name': 'mse', 'predictions': 'u05'}},
-                          'equation_step': {'scope': '-addendums'}}}
-
-s1 = NumpySampler('uniform')
-s2 = ConstantSampler(0.5)
+solver = Solver(odevar, ndims=1, initial_condition=initial,
+                constraints=lambda u, t: u(torch.tensor([0.5])))
 ```
-
-Model-fitting comes in two parts now: (i) solving the equation and (ii) adjusting initial condition to satisfy the additional constraint:
+When tackling this problem, `pydens` will not only solve the equation, but also adjust the variable (initial condition) to satisfy the additional constraint.
+Hence, model-fitting comes in two parts now: (i) solving the equation and (ii) adjusting initial condition to satisfy the additional constraint. Inbetween
+the steps we need to freeze layers of the network to adjust only the adjustable variable:
 
 ```python
-dg.fit(batch_size=150, sampler=s1, n_iters=2000, train_mode='equation_step')
-dg.fit(batch_size=150, sampler=s2, n_iters=2000, train_mode='initial_condition_step')
+solver.fit(batch_size=150, niters=100, lr=0.05)
+solver.model.freeze_layers(['fc1', 'fc2', 'fc3'], ['log_scale'])
+solver.fit(batch_size=150, niters=100, lr=0.05)
 ```
 
 Check out the results:
@@ -142,7 +135,7 @@ Check out the results:
 
 ## Installation
 
-First of all, you have to manually install [tensorflow](https://www.tensorflow.org/install/pip),
+First of all, you have to manually install [pytorch](https://pytorch.org/get-started/locally/),
 as you might need a certain version or a specific build for CPU / GPU.
 
 ### Stable python package
