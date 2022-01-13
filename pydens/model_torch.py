@@ -42,7 +42,6 @@ class TorchModel(ABC, nn.Module):
     @abstractmethod
     def forward(self, xs):
         """ Forward of the model-network. """
-        pass
 
     def freeze_trainable(self, layers=None, variables=None):
         """ Freeze layers and trainable variables.
@@ -139,7 +138,8 @@ class Solver():
         """ Cast, reshape and concatenate sequence of incoming tensors. """
         # Determine batch size as max-len of a tensor.
         xs = list(tensors)
-        batch_size = np.max([tensor.shape[0] for tensor in xs if isinstance(tensor, (np.ndarray, torch.Tensor))])
+        sizes = [tensor.shape[0] for tensor in xs if isinstance(tensor, (np.ndarray, torch.Tensor))]
+        batch_size = np.max(sizes) if len(sizes) > 0 else 1
 
         # Perform cast and reshape of all tensors in the list.
         for i, x in enumerate(xs):
@@ -180,7 +180,7 @@ class Solver():
         _ = self.ctx.run(self.equation, u_hat, *xs)
 
 
-    def fit(self, niters, batch_size, sampler=None, losses='equation', optimizer='Adam', criterion=nn.MSELoss(),
+    def fit(self, niters, batch_size, sampler=None, loss_terms='equation', optimizer='Adam', criterion=nn.MSELoss(),
             lr=0.001, **kwargs):
         """ Fit the model inside the solver-instance. """
         # Initialize the optimizer if supplied.
@@ -206,13 +206,13 @@ class Solver():
             u_hat = self.ctx.run(self.model, xs_concat)
 
             # Compute loss: form it summing equation-loss and constraints-loss.
-            losses = losses if isinstance(losses, (tuple, list)) else (losses, )
-            nums_constraints = [int(loss_name.replace('constraint', '').replace('_', ''))
-                                for loss_name in losses if 'constraint' in loss_name]
+            loss_terms = loss_terms if isinstance(loss_terms, (tuple, list)) else (loss_terms, )
+            nums_constraints = [int(term_name.replace('constraint', '').replace('_', ''))
+                                for term_name in loss_terms if 'constraint' in term_name]
             loss  = 0
 
             # Include equation loss.
-            if 'equation' in losses:
+            if 'equation' in loss_terms:
                 loss += criterion(self.ctx.run(self.equation, u_hat, *xs), torch.zeros_like(xs[0]))
 
             # Include additional constraints' loss.
@@ -231,7 +231,7 @@ class Solver():
             # Gather and store training stats.
             self.losses.append(loss.detach().cpu().numpy())
 
-    def solve(self, *xs):
+    def predict(self, *xs):
         """ Get approximation to a solution in a set of points.
         Points are given by a list of tensors.
         """

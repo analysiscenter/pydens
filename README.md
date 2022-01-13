@@ -43,7 +43,7 @@ solver = Solver(equation=pde, ndims=2, boundary_condition=1,
 
 ```
 
-Note that we defined the architecture of the neural network by supplying `layout`, `activation` and `units` parameters. Here `layout` configures the sequence of layers: `fa fa fa f` stands for `f`ully connected architecture with four layers and three `a`ctivations. In its turn, `units` and `activation` cotrol the number of units in dense layers and activation-function. When defining neural network this way use [`ConvBlock`](https://analysiscenter.github.io/batchflow/api/batchflow.models.torch.layers.html?highlight=baseconvblock#batchflow.models.torch.layers.BaseConvBlock) from [`BatchFlow`](https://github.com/analysiscenter/batchflow). Check out its capabilities to understand more: say, making a network with attention and skip connections.
+Note that we defined the architecture of the neural network by supplying `layout`, `activation` and `units` parameters. Here `layout` configures the sequence of layers: `fa fa fa f` stands for `f`ully connected architecture with four layers and three `a`ctivations. In its turn, `units` and `activation` cotrol the number of units in dense layers and activation-function. When defining neural network this way use [`ConvBlock`](https://analysiscenter.github.io/batchflow/api/batchflow.models.torch.layers.html?highlight=baseconvblock#batchflow.models.torch.layers.BaseConvBlock) from [`BatchFlow`](https://github.com/analysiscenter/batchflow).
 
 It's time to run the optimization procedure
 
@@ -82,14 +82,14 @@ def odeparam(f, x, e):
 s = NumpySampler('uniform') & NumpySampler('uniform', low=1, high=5)
 
 solver = Solver(equation=odeparam, ndims=1, nparams=1, initial_condition=1)
-solver.fit(batch_size=1000, sampler=s, niters=5000)
+solver.fit(batch_size=1000, sampler=s, niters=5000, lr=0.01)
 # solving the whole family takes no more than a couple of seconds!
 ```
 
 Check out the result:
 
 <p align="center">
-<img src="https://raw.githubusercontent.com/analysiscenter/pydens/master/imgs/sinus_sol.gif?invert_in_darkmode" align=middle height=250.973825pt/>
+<img src="https://raw.githubusercontent.com/analysiscenter/pydens/master/imgs/sinus_parametric.gif?invert_in_darkmode" align=middle height=250.973825pt/>
 </p>
 
 ### Solving PDEs with trainable coefficients
