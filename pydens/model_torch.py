@@ -15,8 +15,7 @@ from .batchflow.batchflow.models.torch.layers import ConvBlock # pylint: disable
 current_model = ContextVar("current_model")
 
 class TorchModel(ABC, nn.Module):
-    """ Pytorch model for solving differential equations with neural networks.
-    """
+    """ Pytorch model for solving differential equations with neural networks. """
     def __init__(self, initial_condition=None, boundary_condition=None, ndims=1, nparams=0, **kwargs):
         _ = kwargs
         super().__init__()
@@ -131,28 +130,63 @@ def V(name, *args, **kwargs):
 
 
 class Solver():
-    """ Solver-class for handling differential equations with neural networks.
+    r""" Solver of differential equations with neural networks. Allows to solve wide variety of
+    differential equations including (i) common ODEs and PDEs (ii) parametric families of equations
+    (iii) inverse partial differential equations.
+
+    Based on Sirignano J., Spiliopoulos K. "`DGM: A deep learning algorithm for solving partial
+    differential equations <https://arxiv.org/abs/1708.07469>`_".
+
+    Parameters
+    ----------
+    equation : callable
+        Callable that uses tokens `D`(differentiation operation), `V`(trainable variable) and
+        common mathematical operations from `torch` to setup a PDE-problem.
+
+        Examples:
+
+        - ``lambda f, x: D(f, x) + torch.log(x)``
+        - .. code-block:: python
+
+            def ode(f, x):
+                return D(f, x) - 2 * np.pi * torch.cos(2 * np.pi * x)
+
+        - .. code-block:: python
+
+            def pde(f, x, y):
+                return D(D(f, x), x) + D(D(f, y), y) - torch.sin(np.pi * (x + y))
+
+    model : class
+        Class inheriting `TorchModel`. The default value is `ConvBlockModel`. The class allows
+        to implement fylly connected/convolutional architectures with multiple branches
+        and skip-connections. All of the `kwargs` supplied into `Solver`-initialization
+        go into the `model`-class.
+
+        Note:
+        `ConvBlockModel` is based on `ConvBlock` from framework
+        "`BatchFlow <https://github.com/analysiscenter/batchflow>`_".
+
+    kwargs : dict
+        Keyword-arguments used for initialization of the model-instance. When `model`-parameter
+        is set to its default value - `ConvBlockModel`, use these arguments to configure the
+        architecture:
+
+        layout : str
+            String defining the sequence of layers - for instance, 'fa R fa + f'.
+            Letter 'f' stands for fully connected layer while letter 'c' - for convolutional layer;
+            'a' inserts activation, 'R' defines the start of the skip connection, while '+' shows
+            where the skip ends through sum-operation.
+        units : sequence
+            Sequence configuring the amount of units in all dense layers of the architecture,
+            if any present in layout.
+        activation : sequence
+            Sequence of callables, str, for instance: [torch.Sin, torch.nn.Sigmoid, 'Sigmoid'].
+
+        Examples:
+
+            - ``layout, units, activation = 'fa fa f', [5, 10, 1], 'Sigmoid'``
+            - ``layout, units, activation = 'faR fa fa+ f', [5, 10, 5, 1], 'Sigmoid'``
     """
-    @classmethod
-    def reshape_and_concat(cls, tensors):
-        """ Cast, reshape and concatenate sequence of incoming tensors. """
-        # Determine batch size as max-len of a tensor.
-        xs = list(tensors)
-        sizes = [tensor.shape[0] for tensor in xs if isinstance(tensor, (np.ndarray, torch.Tensor))]
-        batch_size = np.max(sizes) if len(sizes) > 0 else 1
-
-        # Perform cast and reshape of all tensors in the list.
-        for i, x in enumerate(xs):
-            if isinstance(x, (int, float)):
-                xs[i] = torch.Tensor(np.tile(x, (batch_size, 1))).float()
-            if isinstance(x, np.ndarray):
-                if x.size != batch_size:
-                    x = np.tile(x.squeeze()[0], (batch_size, 1))
-                xs[i] = torch.Tensor(x.reshape(batch_size, 1)).float()
-            if isinstance(x, torch.Tensor):
-                xs[i] = x.view(-1, 1)
-        return torch.cat(xs, dim=1)
-
     def __init__(self, equation, model=ConvBlockModel, constraints=None, **kwargs):
         self.equation = equation
         if constraints is None:
@@ -179,9 +213,31 @@ class Solver():
         u_hat = self.model(xs_concat)
         _ = self.ctx.run(self.equation, u_hat, *xs)
 
+    @classmethod
+    def reshape_and_concat(cls, tensors):
+        """ Cast, reshape and concatenate sequence of incoming tensors. """
+        # Determine batch size as max-len of a tensor in included in the sequence.
+        xs = list(tensors)
+        sizes = ([np.prod(tensor.shape) for tensor in xs if isinstance(tensor, (np.ndarray, torch.Tensor))] +
+                 [np.prod(np.array(tensor).shape) for tensor in xs if isinstance(tensor, (tuple, list))])
+        batch_size = np.max(sizes) if len(sizes) > 0 else 1
 
-    def fit(self, niters, batch_size, sampler=None, loss_terms='equation', optimizer='Adam', criterion=nn.MSELoss(),
-            lr=0.001, **kwargs):
+        # Perform cast and reshape of all tensors in the list.
+        for i, x in enumerate(xs):
+            if isinstance(x, (int, float)):
+                xs[i] = torch.Tensor(np.tile(x, (batch_size, 1))).float()
+            if isinstance(x, np.ndarray):
+                if x.size != batch_size:
+                    x = np.tile(x.squeeze()[0], (batch_size, 1))
+                xs[i] = torch.Tensor(x.reshape(batch_size, 1)).float()
+            if isinstance(x, (list, tuple)):
+                xs[i] = torch.Tensor(x).float().view(-1, 1)
+            if isinstance(x, torch.Tensor):
+                xs[i] = x.view(-1, 1)
+        return torch.cat(xs, dim=1)
+
+    def fit(self, niters, batch_size, sampler=None, loss_terms='equation', optimizer='Adam',
+            criterion=nn.MSELoss(), lr=0.001, **kwargs):
         """ Fit the model inside the solver-instance. """
         # Initialize the optimizer if supplied.
         if optimizer is not None:
