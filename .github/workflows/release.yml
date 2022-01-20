@@ -1,0 +1,28 @@
+name: release
+
+on:
+  release:
+    types: [released]
+
+
+jobs:
+
+  pypi:
+    runs-on: ubuntu-latest
+
+    container:
+      image: analysiscenter1/ds-py3
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install dependencies
+      run: pip3 install --upgrade setuptools wheel twine
+
+    - name: Build and publish
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+      run: |
+        python3 setup.py sdist bdist_wheel
+        twine upload --repository pypi dist/*
