@@ -14,7 +14,10 @@ jobs:
       image: analysiscenter1/ds-py3
 
     steps:
-    - uses: actions/checkout@v2
+    - name: Checkout PyDEns
+      uses: actions/checkout@v2
+      with:
+        submodules: true
 
     - name: Install dependencies
       run: pip3 install --upgrade setuptools wheel twine
