@@ -66,7 +66,7 @@ class TorchModel(ABC, nn.Module):
 
             Examples:
 
-            - ``variables=['log_scale'] # Frozes trainable multiplier that is included in the anzatc.``
+            - ``variables=['log_scale'] # Freezes trainable multiplier that is included in the anzatc.``
         """
         layers = layers or []
         variables = variables or []
@@ -132,8 +132,8 @@ class ConvBlockModel(TorchModel):
     The class is based on "`convolutional block from batchflow <https://github.com/analysiscenter/batchflow>`_".
 
     The class allows to easily implement fully connected neural networks as well as convolutional
-    neural networks. For purposes of solving simple differential equations we suggest using
-    fully connected networks with skip connections.
+    neural networks with many branches and skip connections. For purposes of solving simple
+    differential equations we suggest using fully connected networks with skip connections.
 
     See also docstring of `Solver`.
 
@@ -148,7 +148,7 @@ class ConvBlockModel(TorchModel):
         Sequence configuring the amount of units in all dense layers of the architecture,
         if any present in the layout.
     activation : sequence
-        Sequence of callables, str, for instance: [torch.Sin, torch.nn.Sigmoid, 'Sigmoid'].
+        Sequence of callables, str, for instance: `[torch.Sin, torch.nn.Sigmoid, 'Sigmoid']`.
 
     Examples:
 
@@ -289,7 +289,7 @@ class Solver():
             Sequence configuring the amount of units in all dense layers of the architecture,
             if any present in layout.
         activation : sequence
-            Sequence of callables, str, for instance: [torch.Sin, torch.nn.Sigmoid, 'Sigmoid'].
+            Sequence of callables, str, for instance: `[torch.Sin, torch.nn.Sigmoid, 'Sigmoid']`.
 
         Examples:
 
