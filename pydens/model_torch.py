@@ -40,9 +40,9 @@ class TorchModel(ABC, nn.Module):
             elif isinstance(domain[0], (tuple, list)):
                 pass
             else:
-                raise ValueError(f'Should be either 1d or 2d-sequence of float/ints.')
+                raise ValueError('Should be either 1d or 2d-sequence of float/ints.')
         else:
-            raise ValueError(f'Should be either 1d or 2d-sequence of float/ints.')
+            raise ValueError('Should be either 1d or 2d-sequence of float/ints.')
         self.domain = domain
 
         # Initialize trainable variables for anzatc-trasform to bind initial
