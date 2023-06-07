@@ -9,7 +9,7 @@ from torch import nn
 from torch.autograd import grad
 from tqdm import tqdm
 
-from .batchflow.batchflow.models.torch.layers import ConvBlock # pylint: disable=import-error
+from batchflow.models.torch.layers import Block # pylint: disable=import-error
 
 
 current_model = ContextVar("current_model")
@@ -165,7 +165,7 @@ class ConvBlockModel(TorchModel):
 
         # Assemble conv-block.
         fake_inputs = torch.rand((2, self.total), dtype=torch.float32)
-        self.conv_block = ConvBlock(inputs=fake_inputs, **kwargs)
+        self.conv_block = Block(inputs=fake_inputs, **kwargs)
 
     def forward(self, xs):
         u = self.conv_block(xs)
@@ -260,7 +260,7 @@ class Solver():
         go into the `model`-class.
 
         Note:
-        `ConvBlockModel` is based on `ConvBlock` from framework
+        `ConvBlockModel` is based on `Block` from framework
         "`BatchFlow <https://github.com/analysiscenter/batchflow>`_".
 
     constraints : sequence or callable

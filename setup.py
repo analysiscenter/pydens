@@ -31,6 +31,7 @@ setup(
         'tqdm>=4.19.7',
         'scipy>=0.19.1',
         'scikit-image>=0.13.1',
+        'batchflow>=0.8.0',
         'numba>=0.42',
     ],
     classifiers=[
