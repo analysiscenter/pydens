@@ -1,5 +1,5 @@
 [![License](https://img.shields.io/github/license/analysiscenter/pydens.svg)](https://www.apache.org/licenses/LICENSE-2.0)
-[![Python](https://img.shields.io/badge/python-3.5-blue.svg)](https://python.org)
+[![Python](https://img.shields.io/badge/python-3.6-blue.svg)](https://python.org)
 [![PyTorch](https://img.shields.io/badge/PyTorch-1.7-orange.svg)](https://pytorch.org)
 [![Run Status](https://api.shippable.com/projects/5d2deaa02900de000646cdf7/badge?branch=master)](https://app.shippable.com/github/analysiscenter/pydens)
 
