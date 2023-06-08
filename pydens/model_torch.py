@@ -9,7 +9,7 @@ from torch import nn
 from torch.autograd import grad
 from tqdm import tqdm
 
-from batchflow.models.torch.layers import Block # pylint: disable=import-error
+from batchflow.models.torch import Block # pylint: disable=import-error
 
 
 current_model = ContextVar("current_model")
@@ -144,7 +144,7 @@ class ConvBlockModel(TorchModel):
         Letter 'f' stands for fully connected layer while letter 'c' - for convolutional layer;
         'a' inserts activation, 'R' defines the start of the skip connection, while '+' shows
         where the skip ends through sum-operation.
-    units : sequence
+    features : sequence
         Sequence configuring the amount of units in all dense layers of the architecture,
         if any present in the layout.
     activation : sequence
@@ -152,16 +152,16 @@ class ConvBlockModel(TorchModel):
 
     Examples:
 
-        - ``layout, units, activation = 'fa fa f', [5, 10, 1], 'Sigmoid' # Fully-conn with 2 hidden``
-        - ``layout, units, activation = 'faR fa fa+ f', [5, 10, 5, 1], 'Sigmoid # Fully-conn with 3 hidden and skip'``
+        - ``layout, features, activation = 'fa fa f', [5, 10, 1], 'Sigmoid' # Fully-conn with 2 hidden``
+        - ``layout, features, activation = 'faR fa fa+ f', [5, 10, 5, 1], 'Sigmoid # Fully-conn with 3 hidden and skip'``
     """
     def __init__(self, ndims, initial_condition=None, boundary_condition=None, domain=(0, 1), nparams=0,
-                 layout='fafaf', units=(20, 30, 1), activation='Sigmoid', **kwargs):
+                 layout='fafaf', features=(20, 30, 1), activation='Sigmoid', **kwargs):
         super().__init__(ndims=ndims, initial_condition=initial_condition, boundary_condition=boundary_condition,
                          domain=domain, nparams=nparams, **kwargs)
 
         # Prepare kwargs for conv-block.
-        kwargs.update(layout=layout, units=list(units), activation=activation)
+        kwargs.update(layout=layout, features=list(features), activation=activation)
 
         # Assemble conv-block.
         fake_inputs = torch.rand((2, self.total), dtype=torch.float32)
@@ -285,7 +285,7 @@ class Solver():
             Letter 'f' stands for fully connected layer while letter 'c' - for convolutional layer;
             'a' inserts activation, 'R' defines the start of the skip connection, while '+' shows
             where the skip ends through sum-operation.
-        units : sequence
+        features : sequence
             Sequence configuring the amount of units in all dense layers of the architecture,
             if any present in layout.
         activation : sequence
@@ -293,8 +293,8 @@ class Solver():
 
         Examples:
 
-            - ``layout, units, activation = 'fa fa f', [5, 10, 1], 'Sigmoid'``
-            - ``layout, units, activation = 'faR fa fa+ f', [5, 10, 5, 1], 'Sigmoid'``
+            - ``layout, features, activation = 'fa fa f', [5, 10, 1], 'Sigmoid'``
+            - ``layout, features, activation = 'faR fa fa+ f', [5, 10, 5, 1], 'Sigmoid'``
     """
     def __init__(self, equation, ndims, initial_condition=None, boundary_condition=None, domain=(0, 1),
                  nparams=0, model=ConvBlockModel, constraints=None, **kwargs):
