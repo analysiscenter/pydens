@@ -8,8 +8,11 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.8"
-batchflow = "^0.8.0"
-torch = "^1.13"
+batchflow = {version = ">=0.8.0", extras = ["nn"]}
+torchvision = "^0.14"
+
+[tool.poetry.group.dev.dependencies]
+jupyter = "^1.0.0"
 
 [build-system]
 requires = ["poetry-core"]
