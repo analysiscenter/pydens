@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "pydens"
+version = "1.0.2"
+description = "PyDEns is framework for solving Partial and Ordinary Differential Equations using neural networks"
+authors = ["Data Analysis Center"]
+license = "Apache License 2.0"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+batchflow = "^0.8.0"
+torch = "^1.13"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
