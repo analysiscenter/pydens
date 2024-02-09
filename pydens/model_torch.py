@@ -28,11 +28,7 @@ class TorchModel(ABC, nn.Module):
         self.variables = {}
 
         # Parse and store initial condition, boundary condition and domain of the problem.
-        if initial_condition is None:
-            self.initial_condition = None
-        else:
-            self.initial_condition = (initial_condition if callable(initial_condition)
-                                      else lambda *args: torch.tensor(initial_condition, dtype=torch.float32))
+        self.initial_condition = initial_condition
         self.boundary_condition = boundary_condition
         if isinstance(domain, (tuple, list)):
             if isinstance(domain[0], (float, int)):
@@ -110,7 +106,7 @@ class TorchModel(ABC, nn.Module):
         xs_spatial = xs[:, :self.ndims_spatial]
         t = xs[:, self.ndims - 1:self.ndims]
         lower, upper = [lims[0] for lims in self.domain], [lims[1] for lims in self.domain]
-        lower_spatial, upper_spatial = [torch.Tensor(lst[:self.ndims_spatial]).reshape(1, -1).float()
+        lower_spatial, upper_spatial = [torch.Tensor(lst[:self.ndims_spatial]).reshape(1, -1).float().to(xs.device)
                                         for lst in (lower, upper)]
         t0 = lower[-1]
 
@@ -188,6 +184,144 @@ def V(name, *args, **kwargs):
     return getattr(model, name)
 
 
+class FourierNetwork(TorchModel):
+    """ ... """
+    def __init__(self, ndims, initial_condition=None, boundary_condition=None, domain=(0, 1), nparams=0,
+                 layout='faf', features=(20, 30, 1), activation='Sigmoid', fourier_sigma=1, fourier_bias=False,
+                 freeze_fourier_features=True, **kwargs):
+        super().__init__(ndims=ndims, initial_condition=initial_condition, boundary_condition=boundary_condition,
+                         domain=domain, nparams=nparams, **kwargs)
+
+        # Prepare kwargs for conv-block.
+        kwargs.update(layout=layout, features=list(features[1:]), activation=activation)
+
+        # Set up encoding block
+        self.encoding = nn.Linear(self.total, features[0], bias=fourier_bias)
+        if freeze_fourier_features:
+            self.encoding.requires_grad_(False)
+        if fourier_sigma is not None:
+            nn.init.normal_(self.encoding.weight, std=fourier_sigma)
+
+        # Assemble conv-block.
+        fake_inputs = torch.rand((2, 2 * features[0]), dtype=torch.float32) # sin and cos are concatted -> take 2 * features[0]
+        self.conv_block = Block(inputs=fake_inputs, **kwargs)
+
+    def forward(self, xs):
+        # make encoding
+        enc = [activation(2 * torch.pi * self.encoding(xs))
+               for activation in (torch.sin, torch.cos)]
+        enc = torch.cat(enc, dim=1)
+
+        # apply conv block
+        u = self.conv_block(enc)
+        return self.anzatc(u, xs)
+
+class MultiscaleFourierNetwork(TorchModel):
+    """ ... """
+    def __init__(self, ndims, initial_condition=None, boundary_condition=None, domain=(0, 1), nparams=0, nscales=5,
+                 layout='faf', features=(20, 30, 1), activation='Sigmoid', fourier_sigma=1, fourier_bias=False,
+                 freeze_fourier_features=True, **kwargs):
+        super().__init__(ndims=ndims, initial_condition=initial_condition, boundary_condition=boundary_condition,
+                         domain=domain, nparams=nparams, **kwargs)
+        #
+        if isinstance(fourier_sigma, (int, float)):
+            fourier_sigma = (fourier_sigma, ) * nscales
+
+        # Prepare kwargs for conv-block.
+        kwargs.update(layout=layout.replace(' ', '')[:-1], features=list(features[1:-1]), activation=activation)
+
+        # Set up encoding block
+        self.encodings = nn.ModuleList([nn.Linear(self.total, features[0], bias=fourier_bias) for _ in range(nscales)])
+        for i, encoding in enumerate(self.encodings):
+            if fourier_sigma is not None:
+                nn.init.normal_(encoding.weight, std=fourier_sigma[i])
+            if freeze_fourier_features:
+                encoding.requires_grad_(False)
+
+        # Assemble conv-block.
+        fake_inputs = torch.rand((2, 2 * features[0]), dtype=torch.float32) # sin and cos are concatted -> take 2 * features[0]
+        self.conv_block = Block(inputs=fake_inputs, **kwargs)
+
+        # Last linear layer stacked outputs -> single output
+        self.last_linear = nn.Linear(nscales * features[-2], features[-1])
+
+    def forward(self, xs):
+        # make encoding
+        encodings = [
+            [activation(2 * torch.pi * encoding(xs)) for activation in (torch.sin, torch.cos)]
+            for encoding in self.encodings
+        ]
+        encodings = [torch.cat(enc, dim=1) for enc in encodings]
+
+        # apply conv block
+        us = [self.conv_block(enc) for enc in encodings]
+        us = torch.cat(us, dim=-1)
+
+        #
+        u = self.last_linear(us)
+
+        return self.anzatc(u, xs)
+
+class SpatialTemporalFourierNetwork(TorchModel):
+    """ ... """
+    def __init__(self, ndims, initial_condition=None, boundary_condition=None, domain=(0, 1), nparams=0, nscales=(5, 3),
+                 layout='faf', features=(20, 30, 1), activation='Sigmoid', fourier_sigma=1, fourier_bias=False,
+                 freeze_fourier_features=True, **kwargs):
+        super().__init__(ndims=ndims, initial_condition=initial_condition, boundary_condition=boundary_condition,
+                         domain=domain, nparams=nparams, **kwargs)
+        self.nscales = nscales
+        #
+        if isinstance(fourier_sigma, (int, float)):
+            fourier_sigma = (fourier_sigma, ) * nscales[0] + (fourier_sigma, ) * nscales[1]
+
+        # Prepare kwargs for conv-block.
+        kwargs.update(layout=layout.replace(' ', '')[:-1], features=list(features[1:-1]), activation=activation)
+
+        # Set up encoding block
+        self.encodings = (
+            nn.ModuleList([nn.Linear(self.total - 1, features[0], bias=fourier_bias) for _ in range(nscales[0])]) + # spatial encoding matrices
+            nn.ModuleList([nn.Linear(1, features[0], bias=fourier_bias) for _ in range(nscales[1])])  # temporal encoding matrices
+        )
+        for i, encoding in enumerate(self.encodings):
+            if fourier_sigma is not None:
+                nn.init.normal_(encoding.weight, std=fourier_sigma[i])
+            if freeze_fourier_features:
+                encoding.requires_grad_(False)
+
+        # Assemble conv-block.
+        fake_inputs = torch.rand((2, 2 * features[0]), dtype=torch.float32) # sin and cos are concatted -> take 2 * features[0]
+        self.conv_block = Block(inputs=fake_inputs, **kwargs)
+
+        # Last linear layer stacked outputs -> single output
+        self.last_linear = nn.Linear(nscales[0] * nscales[1] * features[-2], features[-1])
+
+    def forward(self, xs):
+        # create spatial and temporal tensors
+        xs_spatial = torch.cat([xs[:, :self.ndims_spatial], xs[:, self.ndims:]], dim=1)
+        t = xs[:, self.ndims - 1:self.ndims]
+        coordinates = (xs_spatial, ) * self.nscales[0] + (t, ) * self.nscales[1]
+
+        # make encoding
+        encodings = [
+            [activation(2 * torch.pi * encoding(coords)) for activation in (torch.sin, torch.cos)]
+            for encoding, coords in zip(self.encodings, coordinates)
+        ]
+        encodings = [torch.cat(enc, dim=1) for enc in encodings]
+
+        # apply conv block
+        hs = [self.conv_block(enc) for enc in encodings]
+        multiplications = []
+        for i in range(self.nscales[0]):
+            for j in range(self.nscales[1]):
+                multiplications.append(hs[i] * hs[self.nscales[0] + j])
+
+        us = torch.cat(multiplications, dim=-1)
+
+        #
+        u = self.last_linear(us)
+
+        return self.anzatc(u, xs)
+
 class Solver():
     r""" Solver of differential equations with neural networks. Allows to solve wide variety of
     differential equations including (i) common ODEs and PDEs (ii) parametric families of equations
@@ -263,6 +397,9 @@ class Solver():
         `ConvBlockModel` is based on `Block` from framework
         "`BatchFlow <https://github.com/analysiscenter/batchflow>`_".
 
+    device : str or torch.device
+        ..............
+
     constraints : sequence or callable
         Either sequence of callables or one callable. Each callable is an additional constraint
         that can be used during `fit`-run to form loss function.
@@ -297,7 +434,7 @@ class Solver():
             - ``layout, features, activation = 'faR fa fa+ f', [5, 10, 5, 1], 'Sigmoid'``
     """
     def __init__(self, equation, ndims, initial_condition=None, boundary_condition=None, domain=(0, 1),
-                 nparams=0, model=ConvBlockModel, constraints=None, **kwargs):
+                 nparams=0, model=ConvBlockModel, device='cpu', constraints=None, **kwargs):
         self.equation = equation
         if constraints is None:
             self.constraints = ()
@@ -307,25 +444,29 @@ class Solver():
             self.constraints = (constraints, )
         self.losses = []
         self.optimizer = None
+        self.device = device
 
         # Initialize neural network for solving the equation.
+        if initial_condition is not None:
+            if not callable(initial_condition):
+                value = initial_condition
+                initial_condition = lambda *args: torch.tensor(value, dtype=torch.float32).to(device)
         self.model = model(**kwargs, ndims=ndims, initial_condition=initial_condition,
-                           boundary_condition=boundary_condition, domain=domain, nparams=nparams)
+                           boundary_condition=boundary_condition, domain=domain, nparams=nparams).to(device)
 
         # Bind created model to a global context variable.
         current_model.set(self.model)
         self.ctx = copy_context()
 
         # Perform fake run of the model to create all the variables (coming from V-token).
-        xs = [torch.rand((1, 1)) for _ in range(self.model.total)]
+        xs = [torch.rand((1, 1)).to(device) for _ in range(self.model.total)]
         for x in xs:
             x.requires_grad_()
         xs_concat = self.reshape_and_concat(xs)
         u_hat = self.model(xs_concat)
         _ = self.ctx.run(self.equation, u_hat, *xs)
 
-    @classmethod
-    def reshape_and_concat(cls, tensors):
+    def reshape_and_concat(self, tensors):
         """ Cast, reshape and concatenate sequence of incoming tensors. Returns `torch.Tensor`
         of size (N X D).
 
@@ -350,13 +491,13 @@ class Solver():
         # Perform cast and reshape of all tensors in the list.
         for i, x in enumerate(xs):
             if isinstance(x, (int, float)):
-                xs[i] = torch.Tensor(np.tile(x, (batch_size, 1))).float()
+                xs[i] = torch.Tensor(np.tile(x, (batch_size, 1))).float().to(self.device)
             if isinstance(x, np.ndarray):
                 if x.size != batch_size:
                     x = np.tile(x.squeeze()[0], (batch_size, 1))
-                xs[i] = torch.Tensor(x.reshape(batch_size, 1)).float()
+                xs[i] = torch.Tensor(x.reshape(batch_size, 1)).float().to(self.device)
             if isinstance(x, (list, tuple)):
-                xs[i] = torch.Tensor(x).float().view(-1, 1)
+                xs[i] = torch.Tensor(x).float().to(self.device).view(-1, 1)
             if isinstance(x, torch.Tensor):
                 xs[i] = x.view(-1, 1)
         return torch.cat(xs, dim=1)
@@ -421,44 +562,83 @@ class Solver():
                                                               if p.requires_grad],
                                                               lr=lr, **kwargs)
 
+        loss_terms = loss_terms if isinstance(loss_terms, (tuple, list)) else (loss_terms, )
+        nums_constraints = [int(term_name.replace('constraint', '').replace('_', ''))
+                            for term_name in loss_terms if 'constraint' in term_name]
+
         # Perform `niters`-iterations of optimizer steps.
         self.model.train()
         for _ in tqdm(range(niters)):
-            self.optimizer.zero_grad()
+            if optimizer == "LBFGS":
+                def closure():
+                    self.optimizer.zero_grad()
+                    # Sample batch of points and compute solution-approximation on the batch.
+                    if sampler is None:
+                        xs = [torch.rand((batch_size, 1)).to(self.device) for _ in range(self.model.total)]
+                    else:
+                        xs_array = sampler.sample(batch_size).astype(np.float32)
+                        xs = [torch.from_numpy(xs_array[:, i:i+1]).to(self.device) for i in range(xs_array.shape[1])]
+                    for x in xs:
+                        x.requires_grad_()
+                    xs_concat = self.reshape_and_concat(xs)
+                    u_hat = self.ctx.run(self.model, xs_concat)
+                    # Compute loss: form it summing equation-loss and constraints-loss.
+                    loss  = 0
 
-            # Sample batch of points and compute solution-approximation on the batch.
-            if sampler is None:
-                xs = [torch.rand((batch_size, 1)) for _ in range(self.model.total)]
+                    # Include equation loss.
+                    if 'equation' in loss_terms:
+                        loss += criterion(self.ctx.run(self.equation, u_hat, *xs), torch.zeros_like(xs[0]).to(self.device))
+
+                    # Include additional constraints' loss.
+                    def _forward(*xs):
+                        """ Concat and apply the model. """
+                        xs = self.reshape_and_concat(xs)
+                        return self.model(xs)
+
+                    for num in nums_constraints:
+                        loss += criterion(self.ctx.run(self.constraints[num], _forward, *xs), torch.Tensor([0.0]))
+
+                    # Optimizer step.
+                    loss.backward()
+                    return loss
+                self.optimizer.step(closure)
+                loss = closure()
             else:
-                xs_array = sampler.sample(batch_size).astype(np.float32)
-                xs = [torch.from_numpy(xs_array[:, i:i+1]) for i in range(xs_array.shape[1])]
-            for x in xs:
-                x.requires_grad_()
-            xs_concat = self.reshape_and_concat(xs)
-            u_hat = self.ctx.run(self.model, xs_concat)
+                self.optimizer.zero_grad()
 
-            # Compute loss: form it summing equation-loss and constraints-loss.
-            loss_terms = loss_terms if isinstance(loss_terms, (tuple, list)) else (loss_terms, )
-            nums_constraints = [int(term_name.replace('constraint', '').replace('_', ''))
-                                for term_name in loss_terms if 'constraint' in term_name]
-            loss  = 0
+                # Sample batch of points and compute solution-approximation on the batch.
+                if sampler is None:
+                    xs = [torch.rand((batch_size, 1)).to(self.device) for _ in range(self.model.total)]
+                else:
+                    xs_array = sampler.sample(batch_size).astype(np.float32)
+                    xs = [torch.from_numpy(xs_array[:, i:i+1]).to(self.device) for i in range(xs_array.shape[1])]
+                for x in xs:
+                    x.requires_grad_()
+                xs_concat = self.reshape_and_concat(xs)
+                u_hat = self.ctx.run(self.model, xs_concat)
 
-            # Include equation loss.
-            if 'equation' in loss_terms:
-                loss += criterion(self.ctx.run(self.equation, u_hat, *xs), torch.zeros_like(xs[0]))
+                # Compute loss: form it summing equation-loss and constraints-loss.
+                # loss_terms = loss_terms if isinstance(loss_terms, (tuple, list)) else (loss_terms, )
+                nums_constraints = [int(term_name.replace('constraint', '').replace('_', ''))
+                                    for term_name in loss_terms if 'constraint' in term_name]
+                loss  = 0
 
-            # Include additional constraints' loss.
-            def _forward(*xs):
-                """ Concat and apply the model. """
-                xs = self.reshape_and_concat(xs)
-                return self.model(xs)
+                # Include equation loss.
+                if 'equation' in loss_terms:
+                    loss += criterion(self.ctx.run(self.equation, u_hat, *xs), torch.zeros_like(xs[0]).to(self.device))
 
-            for num in nums_constraints:
-                loss += criterion(self.ctx.run(self.constraints[num], _forward, *xs), torch.Tensor([0.0]))
+                # Include additional constraints' loss.
+                def _forward(*xs):
+                    """ Concat and apply the model. """
+                    xs = self.reshape_and_concat(xs)
+                    return self.model(xs)
 
-            # Optimizer step.
-            loss.backward()
-            self.optimizer.step()
+                for num in nums_constraints:
+                    loss += criterion(self.ctx.run(self.constraints[num], _forward, *xs), torch.Tensor([0.0]))
+
+                # Optimizer step.
+                loss.backward()
+                self.optimizer.step()
 
             # Gather and store training stats.
             self.losses.append(loss.detach().cpu().numpy())
